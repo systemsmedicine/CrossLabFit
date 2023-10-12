@@ -5,9 +5,9 @@ LIBRARIES = -lm -lcurand
 #NVCC = nvcc -ccbin $(HOST_COMPILER) $(NVCCFLAGS) -arch=$(GPU_ARCH)
 NVCC = nvcc $(NVCCFLAGS)
 
-OBJS = mainDEest.o
+OBJS = main-qDE.o
 
-DEest : $(OBJS)
+qDE : $(OBJS)
 	$(NVCC) $^ -o $@ $(LIBRARIES)
 
 %.o : %.cu
