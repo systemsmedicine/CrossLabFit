@@ -1,5 +1,5 @@
 ### DE parameters
-2048		# Population of parameters (GPU threads)
+2048		# Population of parameter vectors (GPU threads)
 1000		# Max iterations
 0.8		# Recombination probability (Cr)
 0.8		# Mutation factor (Fm)

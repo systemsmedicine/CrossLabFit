@@ -752,34 +752,36 @@ int main()
 
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 
-	// Tamaño de la población
+	/* DE parameters */
+	// Population of parameter vector
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &Np);
 
-	// Iteraciones máximas
+	// Maximum iterations
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &itMax);
 
-	// Probabilidad de recombinación
+	// Recombination probability
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%f", &Cr);
 
-	// Factor de mutación
+	// Mutation factor
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%f", &Fm);
 
-	// Semilla para números aleatorios
+	// Seed for random numbers
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &seed);
 
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 
-	// Tiempo inicial
+	/* Initial conditions for ODE solve */
+	// Initial time
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%f", &t0);
 
-	// Tiempo final
+	// Final time
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%f", &tN);
 
@@ -787,13 +789,17 @@ int main()
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%f", &dt);
 
-	// Numero de variables
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+
+	/* Parameters to estimate */
+	// Number of parameters to estimate
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &D);
 
-	// Include qualitative fit of CD8
+	// Include qualitative fit?
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
-	else sscanf(renglon, "%d", &flag8);
+	else sscanf(renglon, "%d", &qflag);
 
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
