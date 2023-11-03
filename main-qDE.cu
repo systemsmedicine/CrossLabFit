@@ -48,20 +48,25 @@
 
 typedef struct 
 {
-	float X;
-	float Y;
+	float X1;
+	float X2;
+	float X3;
 } 
 comp;
 
 typedef struct 
 {
-	float X0;
-	float Y0;
+	float X1_0;
+	float X2_0;
+	float X3_0;
 
-	float alp;
-	float bet;
-	float del;
-	float gam;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	float a5;
+	float a6;
+	float a7;
 
 	float t0;
 	float tN;
@@ -91,25 +96,32 @@ long nextPow2(long x)
 
 //-------------------------------------------------------------------------------
 
-__device__ void derivs(int idx, param pars, float *pop, comp Z, comp *dotZ)
+__device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 {
 	int ii = 0;
-	float alp = pop[idx + ii];
+	float a1 = pop[idx + ii];
 	ii++;
-	float bet = pop[idx + ii];
+	float a2 = pop[idx + ii];
 	ii++;
-	float del = pop[idx + ii];
+	float a3 = pop[idx + ii];
 	ii++;
-	float gam = pop[idx + ii];
+	float a4 = pop[idx + ii];
+	ii++;
+	float a5 = pop[idx + ii];
+	ii++;
+	float a6 = pop[idx + ii];
+	ii++;
+	float a7 = pop[idx + ii];
 
-	dotZ->X = alp*Z.X - bet*Z.X*Z.Y;
-	dotZ->Y = del*Z.X*Z.Y - gam*Z.Y;
+	dotY->X1 = a1*Y.X1 - a2*Y.X1*Y.X2;
+	dotY->X2 = a3*Y.X1*Y.X2 - a4*Y.X2 - a5*Y.X2*Y.X3;
+	dotY->X3 = a6*Y.X2*Y.X3 - a7*Y.X3;
 
 	return;
 }
 
 //-------------------------------------------------------------------------------
-__global__ void costFunction(param pars, float *pop, float *timeData, float *dataPrey,
+__global__ void costFunction(param pars, float *pop, float *timeData, float *dataX1,
 		float *qtime, float *qData, float *valCostFn)
 {
 	int ind;
@@ -119,21 +131,22 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 
 	int idx;
 	float t0, tN, tt;
-	comp Z, dotZ;
+	comp Y, dotY;
 
 	idx = ind*pars.D;
 	t0 = pars.t0;
 	tN = pars.tN;
 
 	// Initial values
-	Z.X = pars.X0;
-	Z.Y = pars.Y0;
+	Y.X1 = pars.X1_0;
+	Y.X2 = pars.X2_0;
+	Y.X3 = pars.X3_0;
 
-	derivs(idx, pars, pop, Z, &dotZ);
+	derivs(idx, pars, pop, Y, &dotY);
 
 	// ODE solver (5th-order Dormand-Prince)
 
-	comp ztemp, k2, k3, k4, k5, k6, dotZnew, zOut;
+	comp ytemp, k2, k3, k4, k5, k6, dotYnew, yOut;
 	float aux;
 	int nn, qnn;
 	float h;
@@ -158,43 +171,51 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 
 	do
 	{
-		ztemp.X = Z.X + h*A21*dotZ.X;
-		ztemp.Y = Z.Y + h*A21*dotZ.Y;
+		ytemp.X1 = Y.X1 + h*A21*dotY.X1;
+		ytemp.X2 = Y.X2 + h*A21*dotY.X2;
+		ytemp.X3 = Y.X3 + h*A21*dotY.X3;
 
-		derivs(idx, pars, pop, ztemp, &k2);
+		derivs(idx, pars, pop, ytemp, &k2);
 
-		ztemp.X = Z.X + h*(A31*dotZ.X + A32*k2.X);
-		ztemp.Y = Z.Y + h*(A31*dotZ.Y + A32*k2.Y);
+		ytemp.X1 = Y.X1 + h*(A31*dotY.X1 + A32*k2.X1);
+		ytemp.X2 = Y.X2 + h*(A31*dotY.X2 + A32*k2.X2);
+		ytemp.X3 = Y.X3 + h*(A31*dotY.X3 + A32*k2.X3);
 
-		derivs(idx, pars, pop, ztemp, &k3);
+		derivs(idx, pars, pop, ytemp, &k3);
 
-		ztemp.X = Z.X + h*(A41*dotZ.X + A42*k2.X + A43*k3.X);
-		ztemp.Y = Z.Y + h*(A41*dotZ.Y + A42*k2.Y + A43*k3.Y);
+		ytemp.X1 = Y.X1 + h*(A41*dotY.X1 + A42*k2.X1 + A43*k3.X1);
+		ytemp.X2 = Y.X2 + h*(A41*dotY.X2 + A42*k2.X2 + A43*k3.X2);
+		ytemp.X3 = Y.X3 + h*(A41*dotY.X3 + A42*k2.X3 + A43*k3.X3);
 
-		derivs(idx, pars, pop, ztemp, &k4);
+		derivs(idx, pars, pop, ytemp, &k4);
 
-		ztemp.X = Z.X + h*(A51*dotZ.X + A52*k2.X + A53*k3.X + A54*k4.X);
-		ztemp.Y = Z.Y + h*(A51*dotZ.Y + A52*k2.Y + A53*k3.Y + A54*k4.Y);
+		ytemp.X1 = Y.X1 + h*(A51*dotY.X1 + A52*k2.X1 + A53*k3.X1 + A54*k4.X1);
+		ytemp.X2 = Y.X2 + h*(A51*dotY.X2 + A52*k2.X2 + A53*k3.X2 + A54*k4.X2);
+		ytemp.X3 = Y.X3 + h*(A51*dotY.X3 + A52*k2.X3 + A53*k3.X3 + A54*k4.X3);
 
-		derivs(idx, pars, pop, ztemp, &k5);
+		derivs(idx, pars, pop, ytemp, &k5);
 
-		ztemp.X = Z.X + h*(A61*dotZ.X + A62*k2.X + A63*k3.X + A64*k4.X + A65*k5.X);
-		ztemp.Y = Z.Y + h*(A61*dotZ.Y + A62*k2.Y + A63*k3.Y + A64*k4.Y + A65*k5.Y);
+		ytemp.X1 = Y.X1 + h*(A61*dotY.X1 + A62*k2.X1 + A63*k3.X1 + A64*k4.X1 + A65*k5.X1);
+		ytemp.X2 = Y.X2 + h*(A61*dotY.X2 + A62*k2.X2 + A63*k3.X2 + A64*k4.X2 + A65*k5.X2);
+		ytemp.X3 = Y.X3 + h*(A61*dotY.X3 + A62*k2.X3 + A63*k3.X3 + A64*k4.X3 + A65*k5.X3);
 
-		derivs(idx, pars, pop, ztemp, &k6);
+		derivs(idx, pars, pop, ytemp, &k6);
 
-		zOut.X = Z.X + h*(A71*dotZ.X + A73*k3.X + A74*k4.X + A75*k5.X + A76*k6.X);
-		zOut.Y = Z.Y + h*(A71*dotZ.Y + A73*k3.Y + A74*k4.Y + A75*k5.Y + A76*k6.Y);
+		yOut.X1 = Y.X1 + h*(A71*dotY.X1 + A73*k3.X1 + A74*k4.X1 + A75*k5.X1 + A76*k6.X1);
+		yOut.X2 = Y.X2 + h*(A71*dotY.X2 + A73*k3.X2 + A74*k4.X2 + A75*k5.X2 + A76*k6.X2);
+		yOut.X3 = Y.X3 + h*(A71*dotY.X3 + A73*k3.X3 + A74*k4.X3 + A75*k5.X3 + A76*k6.X3);
 
-		derivs(idx, pars, pop, zOut, &dotZnew);
+		derivs(idx, pars, pop, yOut, &dotYnew);
 
 		nanFlag = 0;
-		if (isnan(zOut.X)) nanFlag = 1;
-		if (isnan(zOut.Y)) nanFlag = 1;
+		if (isnan(yOut.X1)) nanFlag = 1;
+		if (isnan(yOut.X2)) nanFlag = 1;
+		if (isnan(yOut.X3)) nanFlag = 1;
 		if (nanFlag) break;
 
-	        if (zOut.X < 0.0) zOut.X = 0.0;
-	        if (zOut.Y < 0.0) zOut.Y = 0.0;
+	        if (yOut.X1 < 0.0) yOut.X1 = 0.0;
+	        if (yOut.X2 < 0.0) yOut.X2 = 0.0;
+	        if (yOut.X3 < 0.0) yOut.X3 = 0.0;
 
 		tt += h;
 
@@ -204,7 +225,7 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 			for (ii=0; ii<sizeSample; ii++)
 			{
 				idxData = ii + nn*sizeSample;
-				aux = dataPrey[idxData] - zOut.X;
+				aux = dataX1[idxData] - yOut.X1;
 				sum2 += aux*aux;
 			}
 
@@ -216,7 +237,7 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		// This calculates the qualitative part
 		if (tt > qtt - 2 && !qflag)
 		{
-			aux = qData[qnn] - zOut.Y;
+			aux = qData[qnn] - yOut.X2;
 			if (aux < 0.0) aux *= -1;
 			if (aux > 4)
 			{
@@ -234,8 +255,8 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 
 		if (flag && qflag) break;
 
-		dotZ = dotZnew;
-		Z = zOut;
+		dotY = dotYnew;
+		Y = yOut;
 	}
 	while (tt <= tN);
 
@@ -346,7 +367,7 @@ int main()
 	/*+*+*+*+*+ START TO FETCH DATA	+*+*+*+*+*/
 	int nData, qnData, nn;
 	float auxfloat;
-	float *timeData, *dataPrey;
+	float *timeData, *dataX1;
 	float *qtime, *qData;
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
@@ -371,7 +392,7 @@ int main()
 	qnData = nData;
 
 	cudaMallocManaged(&timeData, nData*sizeof(float));
-	cudaMallocManaged(&dataPrey, nData*sizeof(float));
+	cudaMallocManaged(&dataX1, nData*sizeof(float));
 	cudaMallocManaged(&qtime, qnData*sizeof(float));
 	cudaMallocManaged(&qData, qnData*sizeof(float));
 
@@ -390,7 +411,7 @@ int main()
 
 		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxfloat);
-		dataPrey[nn] = auxfloat;
+		dataX1[nn] = auxfloat;
 
 		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxfloat);
@@ -478,8 +499,9 @@ int main()
 	pars.qflag = qflag;
 
 	// Initial values
-        pars.X0 = 10.0;
-        pars.Y0 = 10.0;
+        pars.X1_0 = 4.0;
+        pars.X2_0 = 2.0;
+        pars.X3_0 = 1.0;
 
 	float *lowerLim, *upperLim, *pop;
 	int ii, jj, idx;
@@ -549,10 +571,14 @@ int main()
 	blks = 1 + (Np - 1)/ths;
 
 	// Calcula el valor de la función objetivo
-	costFunction<<<blks, ths>>>(pars, pop, timeData, dataPrey, qtime, qData, valCostFn);
+	costFunction<<<blks, ths>>>(pars, pop, timeData, dataX1, qtime, qData, valCostFn);
 	cudaDeviceSynchronize();
 
     	/*+*+*+*+*+ START OPTIMIZATION +*+*+*+*+*/
+	FILE *fPars;
+	fPars = fopen("pars.dat", "w");
+	fprintf("a1 a2 a3 a4 a5 a6 a7 RMSE it");
+
 	int it, xx, yy, zz, flag;
 	int3 *iiMut;
 	float *d_randUni, *d_newPop;
@@ -569,7 +595,7 @@ int main()
 	curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_MTGP32);
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
 
-	// Empiezan las iteraciones
+	// Start iterations
 	for (it=0; it<itMax; it++)
 	{
 		flag = it%50;
@@ -607,12 +633,15 @@ int main()
 		newPopulation<<<blks, ths>>>(Np, D, Cr, Fm, d_randUni, iiMut, lowerLim, upperLim, pop, d_newPop);
 
 		// Calcula el valor de la función objetivo
-		costFunction<<<blks, ths>>>(pars, d_newPop, timeData, dataPrey, qtime, qData, d_newValCostFn);
+		costFunction<<<blks, ths>>>(pars, d_newPop, timeData, dataX1, qtime, qData, d_newValCostFn);
 
 		// Selecciona el mejor vector y lo guarda en la poblacion "pop"
 		selection<<<blks, ths>>>(Np, D, pop, d_newPop, valCostFn, d_newValCostFn);
 
 		cudaDeviceSynchronize();
+
+		// Save population for analysis
+		fprintf("%.3e %.3e %.3e %.3e %.3e %.3e %.3e %.3e %d\n", pop); // aquiiiiiiiiiiiiiiiiiiiiii
 	}
 
 	// Encuentra cual es el minimo de la pobalción
@@ -626,15 +655,12 @@ int main()
 
 	// Imprime el mejor vector de parámetros
 
-	FILE *fPar;
-	fPar = fopen("bestPars.dat", "w");
-	if (valCostFn[iiMin] < 10)
-	{
-		//fprintf(fPar, "#BestPar: RMS = %e\n", minVal);
-		for (jj=0; jj<D-1; jj++) fprintf(fPar, "%.4e\t", pop[iiMin*D + jj]);
-		fprintf(fPar, "%.4e\n", pop[iiMin*D + D-1]);
-	}
-	fclose(fPar);
+	FILE *fBestPars;
+	fBestPars = fopen("bestPars.dat", "a");
+	//fprintf(fBestPasr, "%e\n", minVal);
+	for (jj=0; jj<D-1; jj++) fprintf(fPar, "%.4e\t", pop[iiMin*D + jj]);
+	fprintf(fBestPars, "%.4e\n", pop[iiMin*D + D-1]);
+	fclose(fBestPars);
 
 	printf("FINISHED\n");
 
@@ -642,7 +668,7 @@ int main()
 	cudaFree(qtime);
 	cudaFree(lowerLim);
 	cudaFree(upperLim);
-	cudaFree(dataPrey);
+	cudaFree(dataX1);
 	cudaFree(qData);
 	cudaFree(iiMut);
 	cudaFree(pop);
