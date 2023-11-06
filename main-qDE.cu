@@ -577,7 +577,7 @@ int main()
     	/*+*+*+*+*+ START OPTIMIZATION +*+*+*+*+*/
 	FILE *fPars;
 	fPars = fopen("pars.dat", "w");
-	fprintf("a1 a2 a3 a4 a5 a6 a7 RMSE it");
+	fprintf(fPars, "a1 a2 a3 a4 a5 a6 a7 RMSE it\n");
 
 	int it, xx, yy, zz, flag;
 	int3 *iiMut;
@@ -641,8 +641,15 @@ int main()
 		cudaDeviceSynchronize();
 
 		// Save population for analysis
-		fprintf("%.3e %.3e %.3e %.3e %.3e %.3e %.3e %.3e %d\n", pop); // aquiiiiiiiiiiiiiiiiiiiiii
+		if (!flag) for (ii=0; ii<Np; ii++)
+		{
+			if (valCostFn[ii] == 1e10) continue;
+			for(jj=0; jj<D; jj++) fprintf(fPars, "%.3e ", pop[ii*D + jj]);
+			fprintf(fPars, "%.3e %d\n", valCostFn[ii], it);
+		}
 	}
+
+	fclose(fPars);
 
 	// Encuentra cual es el minimo de la pobalción
 	minVal = valCostFn[0];
@@ -658,7 +665,7 @@ int main()
 	FILE *fBestPars;
 	fBestPars = fopen("bestPars.dat", "a");
 	//fprintf(fBestPasr, "%e\n", minVal);
-	for (jj=0; jj<D-1; jj++) fprintf(fPar, "%.4e\t", pop[iiMin*D + jj]);
+	for (jj=0; jj<D-1; jj++) fprintf(fBestPars, "%.4e\t", pop[iiMin*D + jj]);
 	fprintf(fBestPars, "%.4e\n", pop[iiMin*D + D-1]);
 	fclose(fBestPars);
 
