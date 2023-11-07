@@ -1,9 +1,9 @@
 ### DE parameters
-512		# Population of parameter vectors (GPU threads)
-500		# Max iterations
+256		# Population of parameter vectors (GPU threads)
+1000		# Max iterations
 0.8		# Recombination probability (Cr)
 0.8		# Mutation factor (Fm)
-12345		# Seed for random numbers
+SEED		# Seed for random numbers
 
 ### Initial conditions for ODE solve
 0.0		# Initial time
@@ -12,7 +12,7 @@
 
 ### Parameters to estimate (ranges)
 7		# Number of parmeters to estimate
-0		# Include qualitative fit?
+1		# Include qualitative fit?
 
 # Limits [Lower : Upper]
 [1e-3 : 1]		# a1

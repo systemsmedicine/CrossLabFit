@@ -76,7 +76,6 @@ typedef struct
 	int nData;
 	int qnData;
 	int qflag;
-	int sizeSample;
 } 
 param;
 
@@ -152,7 +151,7 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 	float h;
 
 	float ttData, sum2, qtt; 
-	int nData, qnData, sizeSample, ii, idxData;
+	int nData, qnData;
 	short nanFlag, flag, qflag;
 
 	tt = t0;
@@ -165,7 +164,6 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 	sum2 = 0.0;
 	nData = pars.nData;
 	qnData = pars.qnData;
-	sizeSample = pars.sizeSample;
 	flag = 0;
 	qflag = pars.qflag == 0 ? 1 : 0; // If qflag is off, then set up to 1 to skip it
 
@@ -222,34 +220,44 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		// This part calculates the RMS
 		if (tt > ttData && !flag)
 		{
-			for (ii=0; ii<sizeSample; ii++)
+			while (1)
 			{
-				idxData = ii + nn*sizeSample;
-				aux = dataX1[idxData] - yOut.X1;
+				aux = dataX1[nn] - yOut.X1;
 				sum2 += aux*aux;
+				nn++;
+				if (nn >= nData)
+				{
+					flag = 1;
+					break;
+				}
+				if (!flag)
+				{
+					aux = timeData[nn];
+					if (aux != ttData)
+					{
+						ttData = aux;
+						break;
+					}
+				}
 			}
-
-			nn++;
-			if (nn >= nData) flag = 1;
-			if (!flag) ttData = timeData[nn];
 		}
 
 		// This calculates the qualitative part
-		if (tt > qtt - 2 && !qflag)
+		if (tt > qtt - 1 && !qflag)
 		{
-			aux = qData[qnn] - yOut.X2;
+			aux = qData[qnn] - yOut.X3;
 			if (aux < 0.0) aux *= -1;
-			if (aux > 4)
+			if (aux > 2)
 			{
 				nanFlag = 1;
 				break;
 			}
 			
-			if (tt >= qtt + 2)
+			if (tt >= qtt + 1)
 			{
 				qnn++;
 				if (qnn >= qnData) qflag = 1;
-				if (!qflag) qtt = qtime[qnn];
+				qtt = qtime[qnn];
 			}
 		}
 
@@ -260,7 +268,7 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 	}
 	while (tt <= tN);
 
-	valCostFn[ind] = nanFlag ? 1e10 : sqrt(sum2/(nData*sizeSample));
+	valCostFn[ind] = nanFlag ? 1e10 : sqrt(sum2/nData);
 
 	return;
 }
@@ -372,7 +380,7 @@ int main()
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
-	sprintf(dirData, "pyNotebooks/LVdata.data");
+	sprintf(dirData, "pyNotebooks/LVdata_clean.data");
 	fileRead = fopen(dirData, "r");
 
 	nData = 0;
@@ -414,13 +422,14 @@ int main()
 		dataX1[nn] = auxfloat;
 
 		linea = strtok(NULL, " ");
+
+		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxfloat);
 		qData[nn] = auxfloat;
 
 		nn++;
 	}
 	fclose(fileRead);
-
 
     	/*+*+*+*+*+ DIFERENTIAL EVOLUTION +*+*+*+*+*/
 	int Np, itMax, seed, D, qflag;
@@ -531,23 +540,6 @@ int main()
 	// Inicializa números aleatorios
 	if (seed < 0) seed *= -1;
 	Ran ranUni(seed);
-	//Normaldev ranNorm(0.0, 1.0, seed); // Standard dev (Z)
-
-	int sizeSample = 1;
-	pars.sizeSample = sizeSample;
-
-	// Generate random data in normal distribution
-	//float *dataN;
-	//cudaMallocManaged(&dataN, sizeSample*nData*sizeof(float));
-
-	// Linear transformation from Z to normal dev X
-	// Z = (X - meanX) / stdX -> X = Z*stdX + meanX
-	//for (ii=0; ii<nData; ii++)
-	//	for (jj=0; jj<sizeSample; jj++)
-	//	{
-	//		idx = jj + ii*sizeSample;
-	//		dataN[idx] = meanN[ii] + stdN[ii]*ranNorm.dev();
-	//	}
 
 	// Inicializa población
 	for (jj=0; jj<D; jj++)
