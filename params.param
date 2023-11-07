@@ -8,7 +8,7 @@ SEED		# Seed for random numbers
 ### Initial conditions for ODE solve
 0.0		# Initial time
 100.0		# Final time
-0.5		# Step time
+0.1		# Step time
 
 ### Parameters to estimate (ranges)
 7		# Number of parmeters to estimate

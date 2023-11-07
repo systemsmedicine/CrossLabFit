@@ -211,9 +211,9 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		if (isnan(yOut.X3)) nanFlag = 1;
 		if (nanFlag) break;
 
-	        if (yOut.X1 < 0.0) yOut.X1 = 0.0;
-	        if (yOut.X2 < 0.0) yOut.X2 = 0.0;
-	        if (yOut.X3 < 0.0) yOut.X3 = 0.0;
+	        //if (yOut.X1 < 0.0) yOut.X1 = 0.0;
+	        //if (yOut.X2 < 0.0) yOut.X2 = 0.0;
+	        //if (yOut.X3 < 0.0) yOut.X3 = 0.0;
 
 		tt += h;
 
@@ -635,7 +635,7 @@ int main()
 		// Save population for analysis
 		if (!flag) for (ii=0; ii<Np; ii++)
 		{
-			if (valCostFn[ii] == 1e10) continue;
+			//if (valCostFn[ii] == 1e10) continue;
 			for(jj=0; jj<D; jj++) fprintf(fPars, "%.3e ", pop[ii*D + jj]);
 			fprintf(fPars, "%.3e %d\n", valCostFn[ii], it);
 		}
@@ -657,7 +657,7 @@ int main()
 	FILE *fBestPars;
 	fBestPars = fopen("bestPars.dat", "a");
 	//fprintf(fBestPasr, "%e\n", minVal);
-	for (jj=0; jj<D-1; jj++) fprintf(fBestPars, "%.4e\t", pop[iiMin*D + jj]);
+	for (jj=0; jj<D-1; jj++) fprintf(fBestPars, "%.4e ", pop[iiMin*D + jj]);
 	fprintf(fBestPars, "%.4e\n", pop[iiMin*D + D-1]);
 	fclose(fBestPars);
 
