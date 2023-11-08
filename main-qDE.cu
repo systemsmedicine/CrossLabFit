@@ -71,6 +71,8 @@ typedef struct
 	float t0;
 	float tN;
 	float dt;
+	float windowTime;
+	float windowVal;
 	int D;
 	int Np;
 	int nData;
@@ -151,6 +153,7 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 	float h;
 
 	float ttData, sum2, qtt; 
+	float windowTime, windowVal; 
 	int nData, qnData;
 	short nanFlag, flag, qflag;
 
@@ -166,6 +169,8 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 	qnData = pars.qnData;
 	flag = 0;
 	qflag = pars.qflag == 0 ? 1 : 0; // If qflag is off, then set up to 1 to skip it
+	windowTime = pars.windowTime;
+	windowVal = pars.windowVal;
 
 	do
 	{
@@ -243,21 +248,20 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		}
 
 		// This calculates the qualitative part
-		if (tt > qtt - 1 && !qflag)
+		if (tt > qtt - windowTime/2.0 && !qflag)
 		{
-			aux = qData[qnn] - yOut.X3;
+			aux = qData[qnn] - (yOut.X3-pars.X3_0)/(3.5-pars.X3_0);
 			if (aux < 0.0) aux *= -1;
-			if (aux > 2)
-			{
-				nanFlag = 1;
-				break;
-			}
-			
-			if (tt >= qtt + 1)
+			if (aux < windowVal/2.0)
 			{
 				qnn++;
 				if (qnn >= qnData) qflag = 1;
-				qtt = qtime[qnn];
+				else qtt = qtime[qnn];
+			}
+			else if (tt >= qtt + windowTime/2.0)
+			{
+				nanFlag = 1;
+				break;
 			}
 		}
 
@@ -397,10 +401,49 @@ int main()
 		exit (1);
 	}
 	nData--;
-	qnData = nData;
 
 	cudaMallocManaged(&timeData, nData*sizeof(float));
 	cudaMallocManaged(&dataX1, nData*sizeof(float));
+
+	fileRead = fopen(dirData, "r");
+	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
+
+	nn = 0;
+	while (1)
+	{
+		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
+
+		linea = strtok(renglon, " ");
+		sscanf(linea, "%f", &auxfloat);
+		timeData[nn] = auxfloat;
+
+		linea = strtok(NULL, " ");
+		sscanf(linea, "%f", &auxfloat);
+		dataX1[nn] = auxfloat;
+
+		nn++;
+	}
+	fclose(fileRead);
+
+	sprintf(dirData, "pyNotebooks/LVdata_qual.data");
+	fileRead = fopen(dirData, "r");
+
+	nData = 0;
+	while (1)
+	{
+		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
+		nData++;
+	}
+	fclose(fileRead);
+
+	if (nData == 0)
+	{
+		printf("Error in qualitative data\n");
+		exit (1);
+	}
+	nData--;
+	qnData = nData;
+
 	cudaMallocManaged(&qtime, qnData*sizeof(float));
 	cudaMallocManaged(&qData, qnData*sizeof(float));
 
@@ -414,14 +457,7 @@ int main()
 
 		linea = strtok(renglon, " ");
 		sscanf(linea, "%f", &auxfloat);
-		timeData[nn] = auxfloat;
 		qtime[nn] = auxfloat;
-
-		linea = strtok(NULL, " ");
-		sscanf(linea, "%f", &auxfloat);
-		dataX1[nn] = auxfloat;
-
-		linea = strtok(NULL, " ");
 
 		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxfloat);
@@ -433,7 +469,7 @@ int main()
 
     	/*+*+*+*+*+ DIFERENTIAL EVOLUTION +*+*+*+*+*/
 	int Np, itMax, seed, D, qflag;
-	float Fm, Cr, t0, tN, dt;
+	float Fm, Cr, t0, tN, dt, windowTime, windowVal;
 	int err_flag = 0;
 
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
@@ -487,6 +523,14 @@ int main()
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &qflag);
 
+	// Window of time for qual
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%f", &windowTime);
+
+	// Window of value fraction
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%f", &windowVal);
+
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 
@@ -506,6 +550,8 @@ int main()
 	pars.nData = nData;
 	pars.qnData = qnData;
 	pars.qflag = qflag;
+	pars.windowTime = windowTime;
+	pars.windowVal = windowVal;
 
 	// Initial values
         pars.X1_0 = 4.0;
