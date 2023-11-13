@@ -167,8 +167,8 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 	sum2 = 0.0;
 	nData = pars.nData;
 	qnData = pars.qnData;
-	flag = 0;
-	qflag = pars.qflag == 0 ? 1 : 0; // If qflag is off, then set up to 1 to skip it
+	flag = 1;
+	qflag = pars.qflag;
 	windowTime = pars.windowTime;
 	windowVal = pars.windowVal;
 
@@ -214,16 +214,17 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		if (isnan(yOut.X1)) nanFlag = 1;
 		if (isnan(yOut.X2)) nanFlag = 1;
 		if (isnan(yOut.X3)) nanFlag = 1;
-		if (nanFlag) break;
 
-	        //if (yOut.X1 < 0.0) yOut.X1 = 0.0;
-	        //if (yOut.X2 < 0.0) yOut.X2 = 0.0;
-	        //if (yOut.X3 < 0.0) yOut.X3 = 0.0;
+	        if (yOut.X1 < 0.0) nanFlag = 1;
+	        if (yOut.X2 < 0.0) nanFlag = 1;
+	        if (yOut.X3 < 0.0) nanFlag = 1;
+
+		if (nanFlag) break;
 
 		tt += h;
 
 		// This part calculates the RMS
-		if (tt > ttData && !flag)
+		if (tt > ttData && flag)
 		{
 			while (1)
 			{
@@ -232,10 +233,10 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 				nn++;
 				if (nn >= nData)
 				{
-					flag = 1;
+					flag = 0;
 					break;
 				}
-				if (!flag)
+				else
 				{
 					aux = timeData[nn];
 					if (aux != ttData)
@@ -248,24 +249,24 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		}
 
 		// This calculates the qualitative part
-		if (tt > qtt - windowTime/2.0 && !qflag)
+		if (tt > qtt - windowTime/2.0 && qflag)
 		{
-			aux = qData[qnn] - (yOut.X3-pars.X3_0)/(3.5-pars.X3_0);
+			aux = qData[qnn] - yOut.X3;
 			if (aux < 0.0) aux *= -1;
 			if (aux < windowVal/2.0)
 			{
 				qnn++;
-				if (qnn >= qnData) qflag = 1;
+				if (qnn >= qnData) qflag = 0;
 				else qtt = qtime[qnn];
 			}
-			else if (tt >= qtt + windowTime/2.0)
+			else if (tt > qtt + windowTime/2.0)
 			{
 				nanFlag = 1;
 				break;
 			}
 		}
 
-		if (flag && qflag) break;
+		if (!flag && !qflag) break;
 
 		dotY = dotYnew;
 		Y = yOut;
@@ -384,7 +385,7 @@ int main()
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
-	sprintf(dirData, "pyNotebooks/LVdata_clean.data");
+	sprintf(dirData, "pyNotebooks/LVdata_noise.data");
 	fileRead = fopen(dirData, "r");
 
 	nData = 0;
@@ -428,21 +429,20 @@ int main()
 	sprintf(dirData, "pyNotebooks/LVdata_qual.data");
 	fileRead = fopen(dirData, "r");
 
-	nData = 0;
+	qnData = 0;
 	while (1)
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
-		nData++;
+		qnData++;
 	}
 	fclose(fileRead);
 
-	if (nData == 0)
+	if (qnData == 0)
 	{
 		printf("Error in qualitative data\n");
 		exit (1);
 	}
-	nData--;
-	qnData = nData;
+	qnData--;
 
 	cudaMallocManaged(&qtime, qnData*sizeof(float));
 	cudaMallocManaged(&qData, qnData*sizeof(float));
