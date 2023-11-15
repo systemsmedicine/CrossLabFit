@@ -79,6 +79,7 @@ typedef struct
 	int Np;
 	int nData;
 	int qnData;
+	int qnData_x2;
 	int qflag;
 } 
 param;
@@ -116,16 +117,16 @@ __device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 	ii++;
 	float a7 = pop[idx + ii];
 
-	dotY[0] = a1*Y.X1 - a2*Y.X1*Y.X2;
-	dotY[1] = a3*Y.X1*Y.X2 - a4*Y.X2 - a5*Y.X2*Y.X3;
-	dotY[2] = a6*Y.X2*Y.X3 - a7*Y.X3;
+	dotY->X1 = a1*Y.X1 - a2*Y.X1*Y.X2;
+	dotY->X2 = a3*Y.X1*Y.X2 - a4*Y.X2 - a5*Y.X2*Y.X3;
+	dotY->X3 = a6*Y.X2*Y.X3 - a7*Y.X3;
 
 	return;
 }
 
 //-------------------------------------------------------------------------------
 __global__ void costFunction(param pars, float *pop, float *timeData, float *dataX1,
-		float *qtime, float *qData, float *valCostFn)
+		float *qtime, float *qData, float *qtime_x2, float *qData_x2, float *valCostFn)
 {
 	int ind;
 
@@ -151,26 +152,31 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 
 	comp ytemp, k2, k3, k4, k5, k6, dotYnew, yOut;
 	float aux;
-	int nn, qnn;
+	int nn, qnn, qnn_x2;
 	float h;
 
-	float ttData, sum2, qtt; 
+	float ttData, sum2, qtt, qtt_x2; 
 	float windowTime, windowVal; 
-	int nData, qnData;
-	short nanFlag, flag, qflag;
+	int nData, qnData, qnData_x2;
+	short nanFlag, flag, qflag, qflag_x2;
 
 	tt = t0;
 	h = pars.dt;
 
 	nn = 0;
 	qnn = 0;
+	qnn_x2 = 0;
 	ttData = timeData[0];
 	qtt = qtime[0];
+	qtt_x2 = qtime_x2[0];
 	sum2 = 0.0;
 	nData = pars.nData;
 	qnData = pars.qnData;
+	qnData_x2 = pars.qnData_x2;
 	flag = 1;
 	qflag = pars.qflag;
+	//qflag_x2 = 0;
+	qflag_x2 = qflag;
 	windowTime = pars.windowTime;
 	windowVal = pars.windowVal;
 
@@ -268,7 +274,25 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 			}
 		}
 
-		if (!flag && !qflag) break;
+		// This calculates the qualitative part
+		if (tt > qtt_x2 - windowTime/2.0 && qflag_x2)
+		{
+			aux = qData_x2[qnn_x2] - yOut.X2;
+			if (aux < 0.0) aux *= -1;
+			if (aux < windowVal/2.0)
+			{
+				qnn_x2++;
+				if (qnn_x2 >= qnData_x2) qflag_x2 = 0;
+				else qtt_x2 = qtime_x2[qnn_x2];
+			}
+			else if (tt > qtt_x2 + windowTime/2.0)
+			{
+				nanFlag = 1;
+				break;
+			}
+		}
+
+		if (!flag && !qflag && !qflag_x2) break;
 
 		dotY = dotYnew;
 		Y = yOut;
@@ -380,10 +404,9 @@ float *valCostFn, float *newValCostFn)
 int main()
 {
 	/*+*+*+*+*+ START TO FETCH DATA	+*+*+*+*+*/
-	int nData, qnData, nn;
+	int nData, nn;
 	float auxfloat;
 	float *timeData, *dataX1;
-	float *qtime, *qData;
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
@@ -428,6 +451,9 @@ int main()
 	}
 	fclose(fileRead);
 
+	int qnData;
+	float *qtime, *qData;
+
 	sprintf(dirData, "pyNotebooks/LVdata_qual.data");
 	fileRead = fopen(dirData, "r");
 
@@ -464,6 +490,50 @@ int main()
 		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxfloat);
 		qData[nn] = auxfloat;
+
+		nn++;
+	}
+	fclose(fileRead);
+
+	int qnData_x2;
+	float *qtime_x2, *qData_x2;
+
+	sprintf(dirData, "pyNotebooks/LVdata_qual_x2.data");
+	fileRead = fopen(dirData, "r");
+
+	qnData_x2 = 0;
+	while (1)
+	{
+		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
+		qnData_x2++;
+	}
+	fclose(fileRead);
+
+	if (qnData_x2 == 0)
+	{
+		printf("Error in qualitative data\n");
+		exit (1);
+	}
+	qnData_x2--;
+
+	cudaMallocManaged(&qtime_x2, qnData_x2*sizeof(float));
+	cudaMallocManaged(&qData_x2, qnData_x2*sizeof(float));
+
+	fileRead = fopen(dirData, "r");
+	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
+
+	nn = 0;
+	while (1)
+	{
+		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
+
+		linea = strtok(renglon, " ");
+		sscanf(linea, "%f", &auxfloat);
+		qtime_x2[nn] = auxfloat;
+
+		linea = strtok(NULL, " ");
+		sscanf(linea, "%f", &auxfloat);
+		qData_x2[nn] = auxfloat;
 
 		nn++;
 	}
@@ -551,6 +621,7 @@ int main()
 	pars.dt = dt;
 	pars.nData = nData;
 	pars.qnData = qnData;
+	pars.qnData_x2 = qnData_x2;
 	pars.qflag = qflag;
 	pars.windowTime = windowTime;
 	pars.windowVal = windowVal;
@@ -611,7 +682,7 @@ int main()
 	blks = 1 + (Np - 1)/ths;
 
 	// Calcula el valor de la función objetivo
-	costFunction<<<blks, ths>>>(pars, pop, timeData, dataX1, qtime, qData, valCostFn);
+	costFunction<<<blks, ths>>>(pars, pop, timeData, dataX1, qtime, qData, qtime_x2, qData_x2, valCostFn);
 	cudaDeviceSynchronize();
 
     	/*+*+*+*+*+ START OPTIMIZATION +*+*+*+*+*/
@@ -673,7 +744,7 @@ int main()
 		newPopulation<<<blks, ths>>>(Np, D, Cr, Fm, d_randUni, iiMut, lowerLim, upperLim, pop, d_newPop);
 
 		// Calcula el valor de la función objetivo
-		costFunction<<<blks, ths>>>(pars, d_newPop, timeData, dataX1, qtime, qData, d_newValCostFn);
+		costFunction<<<blks, ths>>>(pars, d_newPop, timeData, dataX1, qtime, qData, qtime_x2, qData_x2, d_newValCostFn);
 
 		// Selecciona el mejor vector y lo guarda en la poblacion "pop"
 		selection<<<blks, ths>>>(Np, D, pop, d_newPop, valCostFn, d_newValCostFn);
