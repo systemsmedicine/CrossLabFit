@@ -71,8 +71,10 @@ typedef struct
 	float t0;
 	float tN;
 	float dt;
+
 	float windowTime;
 	float windowVal;
+
 	int D;
 	int Np;
 	int nData;
@@ -114,9 +116,9 @@ __device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 	ii++;
 	float a7 = pop[idx + ii];
 
-	dotY->X1 = a1*Y.X1 - a2*Y.X1*Y.X2;
-	dotY->X2 = a3*Y.X1*Y.X2 - a4*Y.X2 - a5*Y.X2*Y.X3;
-	dotY->X3 = a6*Y.X2*Y.X3 - a7*Y.X3;
+	dotY[0] = a1*Y.X1 - a2*Y.X1*Y.X2;
+	dotY[1] = a3*Y.X1*Y.X2 - a4*Y.X2 - a5*Y.X2*Y.X3;
+	dotY[2] = a6*Y.X2*Y.X3 - a7*Y.X3;
 
 	return;
 }
