@@ -309,7 +309,7 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 __global__ void newPopulation(int Np, int D, float Cr, float Fm, float *randUni,
 int3 *iiMut, float *lowerLim, float *upperLim, float *pop, float *newPop)
 {
-	int ind, jj, idx, flag = 0;
+	int ind, jj, idx, auxInt, flag = 0;
 	int3 iiM, idxM;
 	float trial, auxL, auxU;
 
@@ -351,10 +351,12 @@ int3 *iiMut, float *lowerLim, float *upperLim, float *pop, float *newPop)
 	// del vector mutante en la nueva población
 	if (!flag)
 	{
+		auxInt = ind*D;
 		while (1)
 		{
-			jj = int(D*randUni[ind]);
+			jj = int(D*randUni[auxInt%(Np*D)]);
 			if (jj == D) jj--;
+			auxInt++;
 			auxL = lowerLim[jj];
 			auxU = upperLim[jj];
 			if (auxL == auxU) continue;
