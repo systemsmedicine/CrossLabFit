@@ -103,6 +103,8 @@ long nextPow2(long x)
 __device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 {
 	int ii = 0;
+	float a0 = pop[idx + ii];
+	ii++;
 	float a1 = pop[idx + ii];
 	ii++;
 	float a2 = pop[idx + ii];
@@ -116,10 +118,20 @@ __device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 	float a6 = pop[idx + ii];
 	ii++;
 	float a7 = pop[idx + ii];
+	ii++;
+	float a8 = pop[idx + ii];
+	ii++;
+	float a9 = pop[idx + ii];
 
-	dotY->X1 = a1*Y.X1 - a2*Y.X1*Y.X2;
-	dotY->X2 = a3*Y.X1*Y.X2 - a4*Y.X2 - a5*Y.X2*Y.X3;
-	dotY->X3 = a6*Y.X2*Y.X3 - a7*Y.X3;
+	// Three-species cycle LV model
+	dotY->X1 = -a1*Y.X1 - a2*Y.X1*Y.X2 + a3*Y.X1*Y.X3;
+	dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
+	dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
+
+	// Three-species linear LV model
+	//dotY->X1 = a0*Y.X1 - a2*Y.X1*Y.X2;
+	//dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
+	//dotY->X3 = a8*Y.X2*Y.X3 - a9*Y.X3;
 
 	return;
 }
