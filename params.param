@@ -11,16 +11,19 @@ SEED		# Seed for random numbers
 0.1		# Step time
 
 ### Parameters to estimate (ranges)
-7		# Number of parmeters to estimate
+10		# Number of parmeters to estimate
 1		# Include qualitative fit?
 10		# Window of time for qual
 1		# Window of value fraction
 
 # Limits [Lower : Upper]
+[0 : 0]		# a0
 [1e-2 : 1]		# a1
 [1e-2 : 1]		# a2
 [1e-2 : 1]		# a3
-[0.11 : 0.11]		# a4
+[1e-2 : 1]		# a4
 [1e-3 : 1e-1]		# a5
-[1e-3 : 1e-1]		# a6
+[1e-2 : 1]		# a6
 [1e-3 : 1e-1]		# a7
+[1e-2 : 1]		# a8
+[1e-3 : 1e-1]		# a9
