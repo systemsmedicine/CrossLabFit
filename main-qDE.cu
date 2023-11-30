@@ -424,7 +424,7 @@ int main()
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
-	sprintf(dirData, "pyNotebooks/linear/LVdata_noise.data");
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_noise.data");
 	fileRead = fopen(dirData, "r");
 
 	nData = 0;
@@ -468,7 +468,7 @@ int main()
 	int qnData;
 	float *qtime, *qData;
 
-	sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x3.data");
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x3.data");
 	fileRead = fopen(dirData, "r");
 
 	qnData = 0;
@@ -512,7 +512,7 @@ int main()
 	int qnData_x2;
 	float *qtime_x2, *qData_x2;
 
-	sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x2.data");
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x2.data");
 	fileRead = fopen(dirData, "r");
 
 	qnData_x2 = 0;
