@@ -116,22 +116,23 @@ __device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 	float a5 = pop[idx + ii];
 	ii++;
 	float a6 = pop[idx + ii];
-	ii++;
-	float a7 = pop[idx + ii];
-	ii++;
-	float a8 = pop[idx + ii];
-	ii++;
-	float a9 = pop[idx + ii];
+	//ii++;
+	//float a7 = pop[idx + ii];
+	//ii++;
+	//float a8 = pop[idx + ii];
+	//ii++;
+	//float a9 = pop[idx + ii];
 
 	// Three-species cycle LV model
-	dotY->X1 = a0*Y.X1 - a1*Y.X1 - a2*Y.X1*Y.X2 + a3*Y.X1*Y.X3;
-	dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
-	dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
-
-	// Three-species linear LV model
-	//dotY->X1 = a0*Y.X1 - a2*Y.X1*Y.X2;
+	//dotY->X1 = a0*Y.X1 - a1*Y.X1 - a2*Y.X1*Y.X2 + a3*Y.X1*Y.X3;
 	//dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
-	//dotY->X3 = a8*Y.X2*Y.X3 - a9*Y.X3;
+	//dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
+
+	// within-host model
+	float T0 = 1e6;
+	dotY->X1 = a0*Y.X1*(1 - Y.X1/a1) - a2*Y.X1*Y.X2 - a3*Y.X1;
+	dotY->X2 = a4*T0 + a5*Y.X2*(Y.X1*Y.X1/(Y.X1*Y.X1 + a6*a6)) - a4*Y.X2;
+	dotY->X3 = 0.0;
 
 	return;
 }
@@ -187,8 +188,8 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 	qnData_x2 = pars.qnData_x2;
 	flag = 1;
 	qflag = pars.qflag;
-	//qflag_x2 = 0;
-	qflag_x2 = qflag;
+	qflag_x2 = 0;
+	//qflag_x2 = qflag;
 	windowTime = pars.windowTime;
 	windowVal = pars.windowVal;
 
@@ -235,9 +236,9 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		if (isnan(yOut.X2)) nanFlag = 1;
 		if (isnan(yOut.X3)) nanFlag = 1;
 
-	        if (yOut.X1 < 0.0) nanFlag = 1;
-	        if (yOut.X2 < 0.0) nanFlag = 1;
-	        if (yOut.X3 < 0.0) nanFlag = 1;
+	        if (yOut.X1 <= 0.0) nanFlag = 1;
+	        if (yOut.X2 <= 0.0) nanFlag = 1;
+	        //if (yOut.X3 < 0.0) nanFlag = 1;
 
 		if (nanFlag) break;
 
@@ -248,7 +249,8 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		{
 			while (1)
 			{
-				aux = dataX1[nn] - yOut.X1;
+				//aux = dataX1[nn] - yOut.X1;
+				aux = log10(dataX1[nn]) - log(yOut.X1);
 				sum2 += aux*aux;
 				nn++;
 				if (nn >= nData)
@@ -424,7 +426,8 @@ int main()
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
-	sprintf(dirData, "pyNotebooks/2-predators/LVdata_noise.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_noise.data");
+	sprintf(dirData, "pyNotebooks/covid-19/E-viral_load.data");
 	fileRead = fopen(dirData, "r");
 
 	nData = 0;
@@ -468,7 +471,8 @@ int main()
 	int qnData;
 	float *qtime, *qData;
 
-	sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x3.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x3.data");
+	sprintf(dirData, "pyNotebooks/covid-19/cd8_sev.data");
 	fileRead = fopen(dirData, "r");
 
 	qnData = 0;
@@ -641,9 +645,13 @@ int main()
 	pars.windowVal = windowVal;
 
 	// Initial values
-        pars.X1_0 = 4.0;
-        pars.X2_0 = 2.0;
-        pars.X3_0 = 1.0;
+        //pars.X1_0 = 4.0;
+        //pars.X2_0 = 2.0;
+        //pars.X3_0 = 1.0;
+
+        pars.X1_0 = 0.31;
+        pars.X2_0 = 1e6;
+        pars.X3_0 = 0.0;
 
 	float *lowerLim, *upperLim, *pop;
 	int ii, jj, idx;
