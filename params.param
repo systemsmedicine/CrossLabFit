@@ -3,24 +3,28 @@
 1000		# Max iterations
 0.8		# Recombination probability (Cr)
 0.8		# Mutation factor (Fm)
-12345		# Seed for random numbers
+SEED		# Seed for random numbers
 
 ### Initial conditions for ODE solve
--3.0		# Initial time
-30.0		# Final time
+0.0		# Initial time
+100.0		# Final time
 0.1		# Step time
 
 ### Parameters to estimate (ranges)
-7		# Number of parmeters to estimate
-0		# Include qualitative fit?
-10		# Window of time for qual
-1e6		# Window of value fraction
+10		# Number of parmeters to estimate
+1		# Include qualitative X2 fit?
+1		# Include qualitative X3 fit?
+5		# Window of time for qual
+0.5		# Window of value fraction
 
 # Limits [Lower : Upper]
-[1e-1 : 1]		# a0
-[1e7 : 1e8]		# a1
-[5e-7 : 5e-6]		# a2
-[1 : 10]		# a3
+[0 : 0]		# a0
+[5e-2 : 5e-1]		# a1
+[5e-2 : 5e-1]		# a2
+[5e-2 : 5e-1]		# a3
 [5e-2 : 5e-1]		# a4
-[1e-1 : 1]		# a5
-[1e5 : 1e6]		# a6
+[1e-2 : 1e-1]		# a5
+[5e-2 : 5e-1]		# a6
+[1e-2 : 1e-1]		# a7
+[5e-2 : 5e-1]		# a8
+[1e-2 : 1e-1]		# a9

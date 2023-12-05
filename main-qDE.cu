@@ -78,9 +78,10 @@ typedef struct
 	int D;
 	int Np;
 	int nData;
-	int qnData;
+	int qnData_x3;
 	int qnData_x2;
-	int qflag;
+	int qflag_x2;
+	int qflag_x3;
 } 
 param;
 
@@ -116,30 +117,30 @@ __device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 	float a5 = pop[idx + ii];
 	ii++;
 	float a6 = pop[idx + ii];
-	//ii++;
-	//float a7 = pop[idx + ii];
-	//ii++;
-	//float a8 = pop[idx + ii];
-	//ii++;
-	//float a9 = pop[idx + ii];
+	ii++;
+	float a7 = pop[idx + ii];
+	ii++;
+	float a8 = pop[idx + ii];
+	ii++;
+	float a9 = pop[idx + ii];
 
 	// Three-species cycle LV model
-	//dotY->X1 = a0*Y.X1 - a1*Y.X1 - a2*Y.X1*Y.X2 + a3*Y.X1*Y.X3;
-	//dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
-	//dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
+	dotY->X1 = a0*Y.X1 - a1*Y.X1 - a2*Y.X1*Y.X2 + a3*Y.X1*Y.X3;
+	dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
+	dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
 
 	// within-host model
-	float T0 = 1e6;
-	dotY->X1 = a0*Y.X1*(1 - Y.X1/a1) - a2*Y.X1*Y.X2 - a3*Y.X1;
-	dotY->X2 = a4*T0 + a5*Y.X2*(Y.X1*Y.X1/(Y.X1*Y.X1 + a6*a6)) - a4*Y.X2;
-	dotY->X3 = 0.0;
+	//float T0 = 1e6;
+	//dotY->X1 = a0*Y.X1*(1 - Y.X1/a1) - a2*Y.X1*Y.X2 - a3*Y.X1;
+	//dotY->X2 = a4*T0 + a5*Y.X2*(Y.X1*Y.X1/(Y.X1*Y.X1 + a6*a6)) - a4*Y.X2;
+	//dotY->X3 = 0.0;
 
 	return;
 }
 
 //-------------------------------------------------------------------------------
 __global__ void costFunction(param pars, float *pop, float *timeData, float *dataX1,
-		float *qtime, float *qData, float *qtime_x2, float *qData_x2, float *valCostFn)
+		float *qTime_x2, float *qData_x2, float *qTime_x3, float *qData_x3, float *valCostFn)
 {
 	int ind;
 
@@ -165,31 +166,30 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 
 	comp ytemp, k2, k3, k4, k5, k6, dotYnew, yOut;
 	float aux;
-	int nn, qnn, qnn_x2;
+	int nn, qnn_x3, qnn_x2;
 	float h;
 
-	float ttData, sum2, qtt, qtt_x2; 
+	float ttData, sum2, qtt_x3, qtt_x2; 
 	float windowTime, windowVal; 
-	int nData, qnData, qnData_x2;
-	short nanFlag, flag, qflag, qflag_x2;
+	int nData, qnData_x3, qnData_x2;
+	short nanFlag, flag, qflag_x3, qflag_x2;
 
 	tt = t0;
 	h = pars.dt;
 
 	nn = 0;
-	qnn = 0;
+	qnn_x3 = 0;
 	qnn_x2 = 0;
 	ttData = timeData[0];
-	qtt = qtime[0];
-	qtt_x2 = qtime_x2[0];
+	qtt_x3 = qTime_x3[0];
+	qtt_x2 = qTime_x2[0];
 	sum2 = 0.0;
 	nData = pars.nData;
-	qnData = pars.qnData;
+	qnData_x3 = pars.qnData_x3;
 	qnData_x2 = pars.qnData_x2;
 	flag = 1;
-	qflag = pars.qflag;
-	qflag_x2 = 0;
-	//qflag_x2 = qflag;
+	qflag_x2 = pars.qflag_x2;
+	qflag_x3 = pars.qflag_x3;
 	windowTime = pars.windowTime;
 	windowVal = pars.windowVal;
 
@@ -236,9 +236,9 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		if (isnan(yOut.X2)) nanFlag = 1;
 		if (isnan(yOut.X3)) nanFlag = 1;
 
-	        if (yOut.X1 <= 0.0) nanFlag = 1;
-	        if (yOut.X2 <= 0.0) nanFlag = 1;
-	        //if (yOut.X3 < 0.0) nanFlag = 1;
+	        if (yOut.X1 < 0.0) nanFlag = 1;
+	        if (yOut.X2 < 0.0) nanFlag = 1;
+	        if (yOut.X3 < 0.0) nanFlag = 1;
 
 		if (nanFlag) break;
 
@@ -249,8 +249,8 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		{
 			while (1)
 			{
-				//aux = dataX1[nn] - yOut.X1;
-				aux = log10(dataX1[nn]) - log(yOut.X1);
+				aux = dataX1[nn] - yOut.X1;
+				//aux = log10(dataX1[nn]) - log(yOut.X1);
 				sum2 += aux*aux;
 				nn++;
 				if (nn >= nData)
@@ -271,24 +271,6 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 		}
 
 		// This calculates the qualitative part
-		if (tt > qtt - windowTime/2.0 && qflag)
-		{
-			aux = qData[qnn] - yOut.X3;
-			if (aux < 0.0) aux *= -1;
-			if (aux < windowVal/2.0)
-			{
-				qnn++;
-				if (qnn >= qnData) qflag = 0;
-				else qtt = qtime[qnn];
-			}
-			else if (tt > qtt + windowTime/2.0)
-			{
-				nanFlag = 1;
-				break;
-			}
-		}
-
-		// This calculates the qualitative part
 		if (tt > qtt_x2 - windowTime/2.0 && qflag_x2)
 		{
 			aux = qData_x2[qnn_x2] - yOut.X2;
@@ -297,7 +279,7 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 			{
 				qnn_x2++;
 				if (qnn_x2 >= qnData_x2) qflag_x2 = 0;
-				else qtt_x2 = qtime_x2[qnn_x2];
+				else qtt_x2 = qTime_x2[qnn_x2];
 			}
 			else if (tt > qtt_x2 + windowTime/2.0)
 			{
@@ -306,7 +288,25 @@ __global__ void costFunction(param pars, float *pop, float *timeData, float *dat
 			}
 		}
 
-		if (!flag && !qflag && !qflag_x2) break;
+		// This calculates the qualitative part
+		if (tt > qtt_x3 - windowTime/2.0 && qflag_x3)
+		{
+			aux = qData_x3[qnn_x3] - yOut.X3;
+			if (aux < 0.0) aux *= -1;
+			if (aux < windowVal/2.0)
+			{
+				qnn_x3++;
+				if (qnn_x3 >= qnData_x3) qflag_x3 = 0;
+				else qtt_x3 = qTime_x3[qnn_x3];
+			}
+			else if (tt > qtt_x3 + windowTime/2.0)
+			{
+				nanFlag = 1;
+				break;
+			}
+		}
+
+		if (!flag && !qflag_x2 && !qflag_x3) break;
 
 		dotY = dotYnew;
 		Y = yOut;
@@ -426,8 +426,10 @@ int main()
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_noise.data");
+	//sprintf(dirData, "pyNotebooks/linear/LVdata_noise.data");
 	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_noise.data");
-	sprintf(dirData, "pyNotebooks/covid-19/E-viral_load.data");
+	//sprintf(dirData, "pyNotebooks/covid-19/E-viral_load.data");
 	fileRead = fopen(dirData, "r");
 
 	nData = 0;
@@ -468,30 +470,32 @@ int main()
 	}
 	fclose(fileRead);
 
-	int qnData;
-	float *qtime, *qData;
+	int qnData_x3;
+	float *qTime_x3, *qData_x3;
 
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x3.data");
+	//sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x3.data");
 	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x3.data");
-	sprintf(dirData, "pyNotebooks/covid-19/cd8_sev.data");
+	//sprintf(dirData, "pyNotebooks/covid-19/cd8_sev.data");
 	fileRead = fopen(dirData, "r");
 
-	qnData = 0;
+	qnData_x3 = 0;
 	while (1)
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
-		qnData++;
+		qnData_x3++;
 	}
 	fclose(fileRead);
 
-	if (qnData == 0)
+	if (qnData_x3 == 0)
 	{
 		printf("Error in qualitative data\n");
 		exit (1);
 	}
-	qnData--;
+	qnData_x3--;
 
-	cudaMallocManaged(&qtime, qnData*sizeof(float));
-	cudaMallocManaged(&qData, qnData*sizeof(float));
+	cudaMallocManaged(&qTime_x3, qnData_x3*sizeof(float));
+	cudaMallocManaged(&qData_x3, qnData_x3*sizeof(float));
 
 	fileRead = fopen(dirData, "r");
 	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
@@ -503,20 +507,22 @@ int main()
 
 		linea = strtok(renglon, " ");
 		sscanf(linea, "%f", &auxfloat);
-		qtime[nn] = auxfloat;
+		qTime_x3[nn] = auxfloat;
 
 		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxfloat);
-		qData[nn] = auxfloat;
+		qData_x3[nn] = auxfloat;
 
 		nn++;
 	}
 	fclose(fileRead);
 
 	int qnData_x2;
-	float *qtime_x2, *qData_x2;
+	float *qTime_x2, *qData_x2;
 
-	sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x2.data");
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x2.data");
+	//sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x2.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x2.data");
 	fileRead = fopen(dirData, "r");
 
 	qnData_x2 = 0;
@@ -534,7 +540,7 @@ int main()
 	}
 	qnData_x2--;
 
-	cudaMallocManaged(&qtime_x2, qnData_x2*sizeof(float));
+	cudaMallocManaged(&qTime_x2, qnData_x2*sizeof(float));
 	cudaMallocManaged(&qData_x2, qnData_x2*sizeof(float));
 
 	fileRead = fopen(dirData, "r");
@@ -547,7 +553,7 @@ int main()
 
 		linea = strtok(renglon, " ");
 		sscanf(linea, "%f", &auxfloat);
-		qtime_x2[nn] = auxfloat;
+		qTime_x2[nn] = auxfloat;
 
 		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxfloat);
@@ -558,7 +564,7 @@ int main()
 	fclose(fileRead);
 
     	/*+*+*+*+*+ DIFERENTIAL EVOLUTION +*+*+*+*+*/
-	int Np, itMax, seed, D, qflag;
+	int Np, itMax, seed, D, qflag_x2, qflag_x3;
 	float Fm, Cr, t0, tN, dt, windowTime, windowVal;
 	int err_flag = 0;
 
@@ -611,7 +617,11 @@ int main()
 
 	// Include qualitative fit?
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
-	else sscanf(renglon, "%d", &qflag);
+	else sscanf(renglon, "%d", &qflag_x2);
+
+	// Include qualitative fit?
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%d", &qflag_x3);
 
 	// Window of time for qual
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
@@ -638,20 +648,21 @@ int main()
 	pars.Np = Np;
 	pars.dt = dt;
 	pars.nData = nData;
-	pars.qnData = qnData;
+	pars.qnData_x3 = qnData_x3;
 	pars.qnData_x2 = qnData_x2;
-	pars.qflag = qflag;
+	pars.qflag_x2 = qflag_x2;
+	pars.qflag_x3 = qflag_x3;
 	pars.windowTime = windowTime;
 	pars.windowVal = windowVal;
 
 	// Initial values
-        //pars.X1_0 = 4.0;
-        //pars.X2_0 = 2.0;
-        //pars.X3_0 = 1.0;
+        pars.X1_0 = 4.0;
+        pars.X2_0 = 2.0;
+        pars.X3_0 = 1.0;
 
-        pars.X1_0 = 0.31;
-        pars.X2_0 = 1e6;
-        pars.X3_0 = 0.0;
+        //pars.X1_0 = 0.31;
+        //pars.X2_0 = 1e6;
+        //pars.X3_0 = 0.0;
 
 	float *lowerLim, *upperLim, *pop;
 	int ii, jj, idx;
@@ -704,15 +715,15 @@ int main()
 	blks = 1 + (Np - 1)/ths;
 
 	// Calcula el valor de la función objetivo
-	costFunction<<<blks, ths>>>(pars, pop, timeData, dataX1, qtime, qData, qtime_x2, qData_x2, valCostFn);
+	costFunction<<<blks, ths>>>(pars, pop, timeData, dataX1, qTime_x2, qData_x2, qTime_x3, qData_x3, valCostFn);
 	cudaDeviceSynchronize();
 
     	/*+*+*+*+*+ START OPTIMIZATION +*+*+*+*+*/
-	FILE *fPars;
-	fPars = fopen("pars.dat", "w");
-	fprintf(fPars, "a1 a2 a3 a4 a5 a6 a7 RMSE it\n");
+	//FILE *fPars;
+	//fPars = fopen("pars.dat", "w");
+	//fprintf(fPars, "a1 a2 a3 a4 a5 a6 a7 a8 a9 RMSE it\n");
 
-	int it, xx, yy, zz, flag;
+	int it, xx, yy, zz;
 	int3 *iiMut;
 	float *d_randUni, *d_newPop;
 	float minVal;
@@ -727,6 +738,8 @@ int main()
 	cudaMalloc(&d_randUni, Np*D*sizeof(float)); // Array only for GPU
 	curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_MTGP32);
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
+
+	int flag;
 
 	// Start iterations
 	for (it=0; it<itMax; it++)
@@ -766,7 +779,7 @@ int main()
 		newPopulation<<<blks, ths>>>(Np, D, Cr, Fm, d_randUni, iiMut, lowerLim, upperLim, pop, d_newPop);
 
 		// Calcula el valor de la función objetivo
-		costFunction<<<blks, ths>>>(pars, d_newPop, timeData, dataX1, qtime, qData, qtime_x2, qData_x2, d_newValCostFn);
+		costFunction<<<blks, ths>>>(pars, d_newPop, timeData, dataX1, qTime_x2, qData_x2, qTime_x3, qData_x3, d_newValCostFn);
 
 		// Selecciona el mejor vector y lo guarda en la poblacion "pop"
 		selection<<<blks, ths>>>(Np, D, pop, d_newPop, valCostFn, d_newValCostFn);
@@ -774,15 +787,15 @@ int main()
 		cudaDeviceSynchronize();
 
 		// Save population for analysis
-		if (!flag) for (ii=0; ii<Np; ii++)
-		{
-			//if (valCostFn[ii] == 1e10) continue;
-			for(jj=0; jj<D; jj++) fprintf(fPars, "%.3e ", pop[ii*D + jj]);
-			fprintf(fPars, "%.3e %d\n", valCostFn[ii], it);
-		}
+		//if (!flag) for (ii=0; ii<Np; ii++)
+		//{
+		//	//if (valCostFn[ii] == 1e10) continue;
+		//	for(jj=0; jj<D; jj++) fprintf(fPars, "%.3e ", pop[ii*D + jj]);
+		//	fprintf(fPars, "%.3e %d\n", valCostFn[ii], it);
+		//}
 	}
 
-	fclose(fPars);
+	//fclose(fPars);
 
 	// Encuentra cual es el minimo de la pobalción
 	minVal = valCostFn[0];
@@ -798,18 +811,20 @@ int main()
 	FILE *fBestPars;
 	fBestPars = fopen("bestPars.dat", "a");
 	//fprintf(fBestPasr, "%e\n", minVal);
-	for (jj=0; jj<D-1; jj++) fprintf(fBestPars, "%.4e ", pop[iiMin*D + jj]);
-	fprintf(fBestPars, "%.4e\n", pop[iiMin*D + D-1]);
+	for (jj=0; jj<D; jj++) fprintf(fBestPars, "%.4e ", pop[iiMin*D + jj]);
+	fprintf(fBestPars, "%.4e\n", minVal);
 	fclose(fBestPars);
 
 	printf("FINISHED\n");
 
 	cudaFree(timeData);
-	cudaFree(qtime);
+	cudaFree(qTime_x2);
+	cudaFree(qTime_x3);
 	cudaFree(lowerLim);
 	cudaFree(upperLim);
 	cudaFree(dataX1);
-	cudaFree(qData);
+	cudaFree(qData_x2);
+	cudaFree(qData_x3);
 	cudaFree(iiMut);
 	cudaFree(pop);
 	cudaFree(d_newPop);
