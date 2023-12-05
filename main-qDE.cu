@@ -350,8 +350,8 @@ int3 *iiMut, float *lowerLim, float *upperLim, float *pop, float *newPop)
 
 		if (randUni[idx] <= Cr)
 		{
-			//trial = pop[idxM.x] + Fm*(pop[idxM.y] - pop[idxM.z]);
-			trial = pop[idx] + Fm*(pop[idxM.x] - pop[idx]) + Fm*(pop[idxM.y] - pop[idxM.z]);
+			trial = pop[idxM.x] + Fm*(pop[idxM.y] - pop[idxM.z]); // DE/rand/1 || DE/best/1
+			//trial = pop[idx] + Fm*(pop[idxM.x] - pop[idx]) + Fm*(pop[idxM.y] - pop[idxM.z]); // DE/current-to-best/1
 			if (trial < auxL) trial = auxL;
 			if (trial > auxU) trial = auxU;
 
@@ -382,8 +382,8 @@ int3 *iiMut, float *lowerLim, float *upperLim, float *pop, float *newPop)
 		idxM.y = iiM.y*D + jj;
 		idxM.z = iiM.z*D + jj;
 
-		//trial = pop[idxM.x] + Fm*(pop[idxM.y] - pop[idxM.z]);
-		trial = pop[idx] + Fm*(pop[idxM.x] - pop[idx]) + Fm*(pop[idxM.y] - pop[idxM.z]);
+		trial = pop[idxM.x] + Fm*(pop[idxM.y] - pop[idxM.z]); // DE/rand/1 || DE/best/1
+		//trial = pop[idx] + Fm*(pop[idxM.x] - pop[idx]) + Fm*(pop[idxM.y] - pop[idxM.z]); // DE/current-to-best/1
 		if (trial < auxL) trial = auxL;
 		if (trial > auxU) trial = auxU;
 
@@ -739,30 +739,30 @@ int main()
 	curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_MTGP32);
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
 
-	int flag;
+	//int flag;
 
 	// Start iterations
 	for (it=0; it<itMax; it++)
 	{
-		flag = it%50;
+		//flag = it%50;
 
 		// Encuentra cual es el minimo de la pobalción
-		minVal = valCostFn[0];
-		iiMin = 0;
-		if (!flag)
-			for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
-			{
-				minVal = valCostFn[ii];
-				iiMin = ii;
-			}
+		//minVal = valCostFn[0];
+		//iiMin = 0;
+		//if (!flag)
+		//	for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
+		//	{
+		//		minVal = valCostFn[ii];
+		//		iiMin = ii;
+		//	}
 
-		if (!flag)
-		{
-			printf("Iteration %d\n", it);
-			printf("RMS_min = %f\n", minVal);
-		}
+		//if (!flag)
+		//{
+		//	printf("Iteration %d\n", it);
+		//	printf("RMS_min = %f\n", minVal);
+		//}
 
-		//xx = iiMin;
+		//xx = iiMin; // best
 		for (ii=0; ii<Np; ii++)
 		{
 			do xx = Np*ranUni.doub(); while (xx == ii);
