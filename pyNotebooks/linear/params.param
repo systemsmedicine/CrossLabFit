@@ -12,7 +12,8 @@ SEED		# Seed for random numbers
 
 ### Parameters to estimate (ranges)
 10		# Number of parmeters to estimate
-1		# Include qualitative fit?
+1               # Include qualitative X2 fit?
+1               # Include qualitative X3 fit?
 5		# Window of time for qual
 0.5		# Window of value fraction
 
