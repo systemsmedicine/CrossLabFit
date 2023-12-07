@@ -12,19 +12,19 @@ SEED		# Seed for random numbers
 
 ### Parameters to estimate (ranges)
 10		# Number of parmeters to estimate
-1               # Include qualitative X2 fit?
+0               # Include qualitative X2 fit?
 1               # Include qualitative X3 fit?
 5		# Window of time for qual
 0.5		# Window of value fraction
 
 # Limits [Lower : Upper]
-[5e-2 : 5e-1]		# a0
-[0 : 0]		# a1
-[5e-2 : 5e-1]		# a2
-[-5e-1 : -5e-2]		# a3
-[5e-2 : 5e-1]		# a4
-[5e-2 : 5e-1]		# a5
-[0 : 0]		# a6
-[-1e-1 : -1e-2]		# a7
-[0 : 0]		# a8
-[1e-2 : 1e-1]		# a9
+[0 : 0]		# a0
+[5e-3 : 5e-1]		# a1
+[5e-3 : 5e-1]		# a2
+[5e-3 : 5e-1]		# a3
+[5e-3 : 5e-1]		# a4
+[5e-3 : 5e-1]		# a5
+[5e-3 : 5e-1]		# a6
+[5e-3 : 5e-1]		# a7
+[5e-3 : 5e-1]		# a8
+[5e-3 : 5e-1]		# a9

@@ -426,9 +426,9 @@ int main()
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
-	//sprintf(dirData, "pyNotebooks/cycle/LVdata_noise.data");
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_noise.data");
 	//sprintf(dirData, "pyNotebooks/linear/LVdata_noise.data");
-	sprintf(dirData, "pyNotebooks/2-predators/LVdata_noise.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_noise.data");
 	//sprintf(dirData, "pyNotebooks/covid-19/E-viral_load.data");
 	fileRead = fopen(dirData, "r");
 
@@ -473,9 +473,9 @@ int main()
 	int qnData_x3;
 	float *qTime_x3, *qData_x3;
 
-	//sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x3.data");
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x3.data");
 	//sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x3.data");
-	sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x3.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x3.data");
 	//sprintf(dirData, "pyNotebooks/covid-19/cd8_sev.data");
 	fileRead = fopen(dirData, "r");
 
@@ -520,9 +520,9 @@ int main()
 	int qnData_x2;
 	float *qTime_x2, *qData_x2;
 
-	//sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x2.data");
+	sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x2.data");
 	//sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x2.data");
-	sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x2.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x2.data");
 	fileRead = fopen(dirData, "r");
 
 	qnData_x2 = 0;
