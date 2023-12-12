@@ -700,7 +700,8 @@ int main()
 		for (ii=0; ii<Np; ii++)
 		{
 			idx = ii*D + jj;
-			pop[idx] = lowerLim[jj] + aux*ranUni.doub();
+			if (aux == 0.0) pop[idx] = lowerLim[jj];
+			else pop[idx] = lowerLim[jj] + aux*ranUni.doub();
 		}
 	}
 
@@ -739,22 +740,22 @@ int main()
 	curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_MTGP32);
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
 
-	//int flag;
+	int flag;
 
 	// Start iterations
 	for (it=0; it<itMax; it++)
 	{
-		//flag = it%50;
+		flag = it%50;
 
 		// Encuentra cual es el minimo de la pobalción
-		//minVal = valCostFn[0];
-		//iiMin = 0;
-		//if (!flag)
-		//	for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
-		//	{
-		//		minVal = valCostFn[ii];
-		//		iiMin = ii;
-		//	}
+		minVal = valCostFn[0];
+		iiMin = 0;
+		if (!flag)
+			for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
+			{
+				minVal = valCostFn[ii];
+				iiMin = ii;
+			}
 
 		//if (!flag)
 		//{
@@ -762,10 +763,10 @@ int main()
 		//	printf("RMS_min = %f\n", minVal);
 		//}
 
-		//xx = iiMin; // best
+		xx = iiMin; // best
 		for (ii=0; ii<Np; ii++)
 		{
-			do xx = Np*ranUni.doub(); while (xx == ii);
+			//do xx = Np*ranUni.doub(); while (xx == ii);
 			do yy = Np*ranUni.doub(); while (yy == ii || yy == xx);
 			do zz = Np*ranUni.doub(); while (zz == ii || zz == yy || zz == xx);
 
