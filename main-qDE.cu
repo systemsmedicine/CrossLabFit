@@ -426,7 +426,8 @@ int main()
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
-	sprintf(dirData, "pyNotebooks/cycle/LVdata_noise.data");
+	sprintf(dirData, "LVdata_noise.data");
+	//sprintf(dirData, "pyNotebooks/cycle/LVdata_noise.data");
 	//sprintf(dirData, "pyNotebooks/linear/LVdata_noise.data");
 	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_noise.data");
 	//sprintf(dirData, "pyNotebooks/covid-19/E-viral_load.data");
@@ -473,7 +474,8 @@ int main()
 	int qnData_x3;
 	float *qTime_x3, *qData_x3;
 
-	sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x3.data");
+	sprintf(dirData, "LVdata_qual_x3.data");
+	//sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x3.data");
 	//sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x3.data");
 	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x3.data");
 	//sprintf(dirData, "pyNotebooks/covid-19/cd8_sev.data");
@@ -520,7 +522,8 @@ int main()
 	int qnData_x2;
 	float *qTime_x2, *qData_x2;
 
-	sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x2.data");
+	sprintf(dirData, "LVdata_qual_x2.data");
+	//sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x2.data");
 	//sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x2.data");
 	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x2.data");
 	fileRead = fopen(dirData, "r");
@@ -740,22 +743,22 @@ int main()
 	curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_MTGP32);
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
 
-	int flag;
+	//int flag;
 
 	// Start iterations
 	for (it=0; it<itMax; it++)
 	{
-		flag = it%50;
+		//flag = it%50;
 
 		// Encuentra cual es el minimo de la pobalción
-		minVal = valCostFn[0];
-		iiMin = 0;
-		if (!flag)
-			for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
-			{
-				minVal = valCostFn[ii];
-				iiMin = ii;
-			}
+		//minVal = valCostFn[0];
+		//iiMin = 0;
+		//if (!flag)
+		//	for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
+		//	{
+		//		minVal = valCostFn[ii];
+		//		iiMin = ii;
+		//	}
 
 		//if (!flag)
 		//{
@@ -763,10 +766,10 @@ int main()
 		//	printf("RMS_min = %f\n", minVal);
 		//}
 
-		xx = iiMin; // best
+		//xx = iiMin; // best
 		for (ii=0; ii<Np; ii++)
 		{
-			//do xx = Np*ranUni.doub(); while (xx == ii);
+			do xx = Np*ranUni.doub(); while (xx == ii);
 			do yy = Np*ranUni.doub(); while (yy == ii || yy == xx);
 			do zz = Np*ranUni.doub(); while (zz == ii || zz == yy || zz == xx);
 
