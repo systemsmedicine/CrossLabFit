@@ -9,4 +9,4 @@ To run several times (parameter distributions):
 for ((i=0; i<100; i++)); do echo $i; ran=$RANDOM;  sed -e 's/SEED/'$ran'/' params.param > tmp.param; ../../qDE < tmp.param; done 
 
 To get likelihood profiles:
-for ((i=5e-2; i<=5e-1; i+=0.009)); do echo $i; ran=$RANDOM;  sed -e 's/SEED/'$ran'/' -e 's/VAL/'$i'/g' params.param > tmp.param; ./qDE < tmp.param; done
+for ((i=50; i<=500; i+=9)); do echo $(bc<<<"$i*0.001"); ran=$RANDOM;  sed -e 's/SEED/'$ran'/' -e 's/VAL/'$(bc<<<"$i*0.001")'/g' params.param > tmp.param; ../../qDE < tmp.param; done
