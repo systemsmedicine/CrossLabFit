@@ -421,8 +421,8 @@ int main()
 {
 	/*+*+*+*+*+ START TO FETCH DATA	+*+*+*+*+*/
 	int nData, nn;
-	float auxfloat;
-	float *timeData, *dataX1;
+	float auxFloat;
+	float *timeData, *orgDataX1;
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
@@ -449,7 +449,7 @@ int main()
 	nData--;
 
 	cudaMallocManaged(&timeData, nData*sizeof(float));
-	cudaMallocManaged(&dataX1, nData*sizeof(float));
+	orgDataX1 = (float *) malloc(nData*sizeof(float));
 
 	fileRead = fopen(dirData, "r");
 	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
@@ -460,12 +460,12 @@ int main()
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
 
 		linea = strtok(renglon, " ");
-		sscanf(linea, "%f", &auxfloat);
-		timeData[nn] = auxfloat;
+		sscanf(linea, "%f", &auxFloat);
+		timeData[nn] = auxFloat;
 
 		linea = strtok(NULL, " ");
-		sscanf(linea, "%f", &auxfloat);
-		dataX1[nn] = auxfloat;
+		sscanf(linea, "%f", &auxFloat);
+		orgDataX1[nn] = auxFloat;
 
 		nn++;
 	}
@@ -508,12 +508,12 @@ int main()
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
 
 		linea = strtok(renglon, " ");
-		sscanf(linea, "%f", &auxfloat);
-		qTime_x3[nn] = auxfloat;
+		sscanf(linea, "%f", &auxFloat);
+		qTime_x3[nn] = auxFloat;
 
 		linea = strtok(NULL, " ");
-		sscanf(linea, "%f", &auxfloat);
-		qData_x3[nn] = auxfloat;
+		sscanf(linea, "%f", &auxFloat);
+		qData_x3[nn] = auxFloat;
 
 		nn++;
 	}
@@ -555,19 +555,19 @@ int main()
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
 
 		linea = strtok(renglon, " ");
-		sscanf(linea, "%f", &auxfloat);
-		qTime_x2[nn] = auxfloat;
+		sscanf(linea, "%f", &auxFloat);
+		qTime_x2[nn] = auxFloat;
 
 		linea = strtok(NULL, " ");
-		sscanf(linea, "%f", &auxfloat);
-		qData_x2[nn] = auxfloat;
+		sscanf(linea, "%f", &auxFloat);
+		qData_x2[nn] = auxFloat;
 
 		nn++;
 	}
 	fclose(fileRead);
 
     	/*+*+*+*+*+ DIFERENTIAL EVOLUTION +*+*+*+*+*/
-	int Np, itMax, seed, D, qflag_x2, qflag_x3;
+	int Np, itMax, seed, D, bootFlag, qflag_x2, qflag_x3;
 	float Fm, Cr, t0, tN, dt, windowTime, windowVal;
 	int err_flag = 0;
 
@@ -617,6 +617,10 @@ int main()
 	// Number of parameters to estimate
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &D);
+
+	// Activate sampling for Bootstraping?
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%d", &bootFlag);
 
 	// Include qualitative fit?
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
@@ -708,6 +712,35 @@ int main()
 		}
 	}
 
+	// Sampling for bootstrap
+	float *dataX1;
+	cudaMallocManaged(&dataX1, nData*sizeof(float));
+
+	int tt, auxInt;
+	if (bootFlag)
+	{
+		tt = 0;
+		nn = 0;
+		auxFloat = timeData[0];
+		for (nn=1; nn<nData; nn++)
+		{
+			tt++;
+			if (nn < nData-1) if (auxFloat == timeData[nn]) continue;
+
+			for (ii=nn-tt; ii<nn; ii++)
+			{
+				auxInt = tt*ranUni.doub();
+				if (auxInt == tt) auxInt--;
+				dataX1[ii] = orgDataX1[nn-tt+auxInt];
+			}
+			
+			tt = 0;
+			auxFloat = timeData[nn];
+		}
+	}
+	else for (nn=0; nn<nData; nn++) dataX1[nn] = orgDataX1[nn];
+	free(orgDataX1);
+
 	int ths, blks;
 	float *valCostFn, *d_newValCostFn;
 
@@ -769,9 +802,9 @@ int main()
 		//xx = iiMin; // best
 		for (ii=0; ii<Np; ii++)
 		{
-			do xx = Np*ranUni.doub(); while (xx == ii);
-			do yy = Np*ranUni.doub(); while (yy == ii || yy == xx);
-			do zz = Np*ranUni.doub(); while (zz == ii || zz == yy || zz == xx);
+			do xx = Np*ranUni.doub(); while (xx == ii || xx == Np);
+			do yy = Np*ranUni.doub(); while (yy == ii || yy == xx || yy == Np);
+			do zz = Np*ranUni.doub(); while (zz == ii || zz == yy || zz == xx || zz == Np);
 
 			iiMut[ii].x = xx; iiMut[ii].y = yy; iiMut[ii].z = zz;
 		}
