@@ -754,11 +754,11 @@ int main()
 		//minVal = valCostFn[0];
 		//iiMin = 0;
 		//if (!flag)
-		//	for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
-		//	{
-		//		minVal = valCostFn[ii];
-		//		iiMin = ii;
-		//	}
+			//for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
+			//{
+			//	minVal = valCostFn[ii];
+			//	iiMin = ii;
+			//}
 
 		//if (!flag)
 		//{
