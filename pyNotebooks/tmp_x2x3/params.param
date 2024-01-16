@@ -12,7 +12,7 @@ SEED		# Seed for random numbers
 
 ### Parameters to estimate (ranges)
 10		# Number of parmeters to estimate
-1               # Resampling for bootstrap?
+0               # Resampling for bootstrap?
 1               # Include qualitative X2 fit?
 1               # Include qualitative X3 fit?
 5		# Window of time for qual
@@ -27,5 +27,5 @@ SEED		# Seed for random numbers
 [1e-2 : 1e-1]		# a5
 [5e-2 : 5e-1]		# a6
 [1e-2 : 1e-1]		# a7
-[5e-2 : 5e-1]		# a8
-[1e-2 : 1e-1]		# a9
+[1e-2 : 1e-1]		# a8
+[VAL : VAL]		# a9
