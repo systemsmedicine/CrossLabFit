@@ -3,7 +3,7 @@
 4000		# Max iterations
 0.8		# Recombination probability (Cr)
 0.8		# Mutation factor (Fm)
-6620		# Seed for random numbers
+3166		# Seed for random numbers
 
 ### Initial conditions for ODE solve
 0.0		# Initial time
@@ -21,8 +21,8 @@
 # Limits [Lower : Upper]
 [5e-2 : 5e-1]		# a0
 [0 : 0]		# a1
-[.285 : .285]		# a2
-[-5e-1 : -5e-2]		# a3
+[5e-2 : 5e-1]		# a2
+[-.275 : -.275]		# a3
 [5e-2 : 5e-1]		# a4
 [5e-2 : 5e-1]		# a5
 [0 : 0]		# a6

@@ -21,8 +21,8 @@ SEED		# Seed for random numbers
 # Limits [Lower : Upper]
 [5e-2 : 5e-1]		# a0
 [0 : 0]		# a1
-[VAL : VAL]		# a2
-[-5e-1 : -5e-2]		# a3
+[5e-2 : 5e-1]		# a2
+[-VAL : -VAL]		# a3
 [5e-2 : 5e-1]		# a4
 [5e-2 : 5e-1]		# a5
 [0 : 0]		# a6
