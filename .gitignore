@@ -2,3 +2,4 @@ qDE
 *.o
 pyNotebooks/.ipynb_checkpoints/
 pyNotebooks/figures/
+pyNotebooks/tmp/
