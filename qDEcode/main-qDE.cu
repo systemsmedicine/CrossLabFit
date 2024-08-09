@@ -11,6 +11,7 @@
 #define FLAG \
         fprintf(stderr, "Flag in %s:%d\n", __FILE__, __LINE__);\
 
+// Dormand-Prince coefficients 
 #define A21 0.2
 #define A31 0.075
 #define A32 0.225
@@ -31,18 +32,6 @@
 #define A74 (125.0/192.0)
 #define A75 (-2187.0/6784.0)
 #define A76 (11.0/84.0)
-#define E1 (71.0/57600.0)
-#define E3 (-71.0/16695.0)
-#define E4 (71.0/1920.0)
-#define E5 (-17253.0/339200.0)
-#define E6 (22.0/525.0)
-#define E7 -0.025
-
-#define BETADP5 0.08
-#define ALPHADP5 (0.2 - BETADP5*0.75)
-#define SAFE 0.9
-#define MINSCALE 0.2
-#define MAXSCALE 10.0 
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- STRUCTURES =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
 
@@ -51,6 +40,7 @@ typedef struct
 	float X1;
 	float X2;
 	float X3;
+	float X4;
 } 
 comp;
 
@@ -59,14 +49,7 @@ typedef struct
 	float X1_0;
 	float X2_0;
 	float X3_0;
-
-	float a1;
-	float a2;
-	float a3;
-	float a4;
-	float a5;
-	float a6;
-	float a7;
+	float X4_0;
 
 	float t0;
 	float tN;
@@ -87,7 +70,6 @@ param;
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- FUNCTIONS =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
 
-// Encuentra la siguiente potencia de dos
 long nextPow2(long x)
 {
     --x;
@@ -101,7 +83,7 @@ long nextPow2(long x)
 
 //-------------------------------------------------------------------------------
 
-__device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
+__device__ void modelLV(int idx, param pars, float *pop, comp Y, comp *dotY)
 {
 	int ii = 0;
 	float a0 = pop[idx + ii];
@@ -128,14 +110,170 @@ __device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 	dotY->X1 = a0*Y.X1 - a1*Y.X1 - a2*Y.X1*Y.X2 + a3*Y.X1*Y.X3;
 	dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
 	dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
-
-	// within-host model
-	//float T0 = 1e6;
-	//dotY->X1 = a0*Y.X1*(1 - Y.X1/a1) - a2*Y.X1*Y.X2 - a3*Y.X1;
-	//dotY->X2 = a4*T0 + a5*Y.X2*(Y.X1*Y.X1/(Y.X1*Y.X1 + a6*a6)) - a4*Y.X2;
-	//dotY->X3 = 0.0;
+	dotY->X4 = 0.0;
 
 	return;
+}
+
+//-------------------------------------------------------------------------------
+
+__device__ void modelInf(int idx, param pars, float *pop, comp Y, comp *dotY)
+{
+	int ii = 0;
+	//float a0 = pop[idx + ii];
+	ii++;
+	float a1 = pop[idx + ii];
+	ii++;
+	float a2 = pop[idx + ii];
+	ii++;
+	float a3 = pop[idx + ii];
+	ii++;
+	float a4 = pop[idx + ii];
+	ii++;
+	float a5 = pop[idx + ii];
+	ii++;
+	float a6 = pop[idx + ii];
+
+	// Influenza model
+	//	U = X1; I = X2; V = X3; T = X4;
+	//	a0 = V0 = X3_0
+	//	a1 = beta
+	//	a2 = del_I
+	//	a3 = p
+	//	a4 = c
+	//	a5 = r
+	//	a6 = del_T
+
+	float T0 = pars.X4_0;
+
+	dotY->X1 = -a1*Y.X1*Y.X3; 
+	dotY->X2 = a1*Y.X1*Y.X3 - a2*Y.X4*Y.X2;
+	dotY->X3 = a3*Y.X2 - a4*Y.X3;
+	dotY->X4 = a5*Y.X4*Y.X3 + a6*(T0 - Y.X4);
+
+	return;
+}
+
+//-------------------------------------------------------------------------------
+
+__device__ void derivs_step(int idx, param pars, float *pop, comp &Y)
+{
+	float h = pars.dt;
+	comp Yold, Ytemp, k1, k2, k3, k4, k5, k6;
+
+	// Old Y values
+	Yold.X1 = Y->X1;
+	Yold.X2 = Y->X2;
+	Yold.X3 = Y->X3;
+	Yold.X4 = Y->X4;
+	
+	//modelLV(idx, pars, pop, Yold, &k1);
+	modelInf(idx, pars, pop, Yold, &k1);
+
+	Ytemp.X1 = Yold.X1 + h*A21*k1.X1;
+	Ytemp.X2 = Yold.X2 + h*A21*k1.X2;
+	Ytemp.X3 = Yold.X3 + h*A21*k1.X3;
+	Ytemp.X4 = Yold.X4 + h*A21*k1.X4;
+
+	//modelLV(idx, pars, pop, Ytemp, &k2);
+	modelInf(idx, pars, pop, Ytemp, &k2);
+
+	Ytemp.X1 = Yold.X1 + h*(A31*k1.X1 + A32*k2.X1);
+	Ytemp.X2 = Yold.X2 + h*(A31*k1.X2 + A32*k2.X2);
+	Ytemp.X3 = Yold.X3 + h*(A31*k1.X3 + A32*k2.X3);
+	Ytemp.X4 = Yold.X4 + h*(A31*k1.X4 + A32*k2.X4);
+
+	//modelLV(idx, pars, pop, Ytemp, &k3);
+	modelInf(idx, pars, pop, Ytemp, &k3);
+
+	Ytemp.X1 = Yold.X1 + h*(A41*k1.X1 + A42*k2.X1 + A43*k3.X1);
+	Ytemp.X2 = Yold.X2 + h*(A41*k1.X2 + A42*k2.X2 + A43*k3.X2);
+	Ytemp.X3 = Yold.X3 + h*(A41*k1.X3 + A42*k2.X3 + A43*k3.X3);
+	Ytemp.X4 = Yold.X4 + h*(A41*k1.X4 + A42*k2.X4 + A43*k3.X4);
+
+	//modelLV(idx, pars, pop, Ytemp, &k4);
+	modelInf(idx, pars, pop, Ytemp, &k4);
+
+	Ytemp.X1 = Yold.X1 + h*(A51*k1.X1 + A52*k2.X1 + A53*k3.X1 + A54*k4.X1);
+	Ytemp.X2 = Yold.X2 + h*(A51*k1.X2 + A52*k2.X2 + A53*k3.X2 + A54*k4.X2);
+	Ytemp.X3 = Yold.X3 + h*(A51*k1.X3 + A52*k2.X3 + A53*k3.X3 + A54*k4.X3);
+	Ytemp.X4 = Yold.X4 + h*(A51*k1.X4 + A52*k2.X4 + A53*k3.X4 + A54*k4.X4);
+
+	//modelLV(idx, pars, pop, Ytemp, &k5);
+	modelInf(idx, pars, pop, Ytemp, &k5);
+
+	Ytemp.X1 = Yold.X1 + h*(A61*k1.X1 + A62*k2.X1 + A63*k3.X1 + A64*k4.X1 + A65*k5.X1);
+	Ytemp.X2 = Yold.X2 + h*(A61*k1.X2 + A62*k2.X2 + A63*k3.X2 + A64*k4.X2 + A65*k5.X2);
+	Ytemp.X3 = Yold.X3 + h*(A61*k1.X3 + A62*k2.X3 + A63*k3.X3 + A64*k4.X3 + A65*k5.X3);
+	Ytemp.X4 = Yold.X4 + h*(A61*k1.X4 + A62*k2.X4 + A63*k3.X4 + A64*k4.X4 + A65*k5.X4);
+
+	//modelLV(idx, pars, pop, Ytemp, &k6);
+	modelInf(idx, pars, pop, Ytemp, &k6);
+
+	// New Y values
+	Y->X1 = Yold.X1 + h*(A71*k1.X1 + A73*k3.X1 + A74*k4.X1 + A75*k5.X1 + A76*k6.X1);
+	Y->X2 = Yold.X2 + h*(A71*k1.X2 + A73*k3.X2 + A74*k4.X2 + A75*k5.X2 + A76*k6.X2);
+	Y->X3 = Yold.X3 + h*(A71*k1.X3 + A73*k3.X3 + A74*k4.X3 + A75*k5.X3 + A76*k6.X3);
+	Y->X4 = Yold.X4 + h*(A71*k1.X4 + A73*k3.X4 + A74*k4.X4 + A75*k5.X4 + A76*k6.X4);
+
+	return;
+}
+//-------------------------------------------------------------------------------
+
+    while (t <= pars.tN)
+    {
+        yOut = final_step(Y, dotY, k3, k4, k5, k6, h, A71);
+
+        // Update time and state
+        t += h;
+        Y = yOut;
+
+        // Update cost function based on RMS error and qualitative checks
+        update_cost_function(timeData, dataX1, qTime_x2, qData_x2, qTime_x3, qData_x3,
+                             &nn, &sum2, &t, &ttData, &qtt_x2, &qtt_x3, &qnn_x2, &qnn_x3,
+                             &flag, &qflag_x2, &qflag_x3, windowTime, windowVal);
+        if (!flag && !qflag_x2 && !qflag_x3) break;
+    }
+
+    valCostFn[ind] = nanFlag ? 1e10 : sqrt(sum2 / nData);
+}
+
+// Aquiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+//-------------------------------------------------------------------------------
+
+__global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQt,
+		float *qTime_x2, float *qData_x2, float *qTime_x3, float *qData_x3, float *valCostFn)
+{
+	int ind = threadIdx.x + blockIdx.x*blockDim.x;
+	if (ind >= pars.Np) return;
+
+	comp Y, dotY, Yout, K2, K3, K4, K5, K6;
+
+	// Initial values
+	Y.X1 = pars.X1_0;
+	Y.X2 = pars.X2_0;
+	Y.X3 = pars.X3_0;
+	Y.X4 = pars.X4_0;
+
+	int idx = ind*pars.D;
+	float h = pars.dt;
+
+	int penaltyFlag = 0;
+
+	while (t <= pars.tN)
+	{
+		// Dormand-Prince method to compute the next state
+		derivs_step(idx, pars, pop, &Y);
+		t += h;
+
+		// Check for NaN values and negative values
+		if (isnan(yOut) || yOut.X1 < 0 || yOut.X2 < 0
+				|| yOut.X3 < 0 || yOut.X4 < 0)
+		{
+			penaltyFlag = true;
+			break;
+		}
+	}
 }
 
 //-------------------------------------------------------------------------------
