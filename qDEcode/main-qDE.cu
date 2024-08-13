@@ -232,6 +232,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 	int penaltyFlag = 0;
 	int rssFlag = 1;
 	int qFlag = pars.qFlag;
+	int lowLimFlag = 0;
 
 	int nn = 0, qnn = 0;
 	int nData = pars.nData, qnData = pars.qnData;
@@ -256,14 +257,27 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 		derivs_step(idx, pars, pop, &Y);
 		t += h;
 
-		// Check for NaN values and negative values
+		// Check for NaN, inf, and negative values
 		if (isnan(Y.X1) || isnan(Y.X2) || isnan(Y.X3) || isnan(Y.X4)
-			|| isinf(Y.X1) || isinf(Y.X2) || isinf(Y.X3) || isinf(Y.X4)
-			|| Y.X1 < 0 || Y.X2 < 0 || Y.X3 < 0 || Y.X4 < 0)
+			|| isinf(Y.X1) || isinf(Y.X2) || isinf(Y.X3) || isinf(Y.X4))
 		{
 			penaltyFlag = 1;
 			break;
 		}
+
+		if (Y.X1 < 0.0) Y.X1 = 0.0;
+		if (Y.X2 < 0.0) Y.X2 = 0.0;
+		if (Y.X3 < 0.0) Y.X3 = 0.0;
+		if (Y.X4 < 0.0) Y.X4 = 0.0;
+
+		if (Y.X3 < 1e2 && lowLimFlag == 0) lowLimFlag = 1;
+		if (Y.X3 > 1e2 && lowLimFlag == 1) lowLimFlag = 2;
+		if (lowLimFlag == 2)
+		{
+			penaltyFlag = 1;
+			break;
+		}
+
 
 		// This part calculates the quantitative RSS
 		if (t > tQt && rssFlag)
@@ -271,6 +285,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 			while (1)
 			{
 				// Data is already in log10
+				if (Y.X3 == 0.0f) Y.X3 = 1e-38;
 				aux = dataQt[nn] - log10(Y.X3); // Virus
 				sum2 += aux*aux;
 				nn++;
@@ -305,7 +320,6 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 				break;
 			}
 		}
-
 
 		if (!rssFlag && !qFlag) break;
 	}

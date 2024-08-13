@@ -1,6 +1,6 @@
 ### DE parameters
 512		# Population of parameter vectors (GPU threads)
-2000		# Max iterations
+5000		# Max iterations
 0.8		# Recombination probability (Cr)
 0.8		# Mutation factor (Fm)
 SEED		# Seed for random numbers
@@ -12,7 +12,7 @@ SEED		# Seed for random numbers
 
 ### Parameters to estimate (ranges)
 7		# Number of parmeters to estimate
-1		# Resampling for bootstrap? 
+0		# Resampling for bootstrap? 
 0               # Include qualitative fit?
 
 # Limits [Lower : Upper]
