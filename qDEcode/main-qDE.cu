@@ -307,7 +307,6 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 		// Qualitative penalties (X4/T cells)
 		if (t > tQl.min && qFlag)
 		{
-			aux = dataQl[qnn].max - Y.X4;
 			if (Y.X4 > dataQl[qnn].min && Y.X4 < dataQl[qnn].max) 
 			{
 				qnn++;
