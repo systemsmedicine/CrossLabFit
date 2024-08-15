@@ -232,7 +232,6 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 	int penaltyFlag = 0;
 	int rssFlag = 1;
 	int qFlag = pars.qFlag;
-	int lowLimFlag = 0;
 
 	int nn = 0, qnn = 0;
 	int nData = pars.nData, qnData = pars.qnData;
@@ -257,7 +256,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 		derivs_step(idx, pars, pop, &Y);
 		t += h;
 
-		// Check for NaN, inf, and negative values
+		// Check for NaN and inf values
 		if (isnan(Y.X1) || isnan(Y.X2) || isnan(Y.X3) || isnan(Y.X4)
 			|| isinf(Y.X1) || isinf(Y.X2) || isinf(Y.X3) || isinf(Y.X4))
 		{
@@ -270,9 +269,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 		if (Y.X3 < 0.0) Y.X3 = 0.0;
 		if (Y.X4 < 0.0) Y.X4 = 0.0;
 
-		if (Y.X3 < 1e2 && lowLimFlag == 0) lowLimFlag = 1;
-		if (Y.X3 > 1e2 && lowLimFlag == 1) lowLimFlag = 2;
-		if (lowLimFlag == 2)
+		if (!rssFlag && t > 1.3*tQt && Y.X3 > 1e2)
 		{
 			penaltyFlag = 1;
 			break;
@@ -280,7 +277,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 
 
 		// This part calculates the quantitative RSS
-		if (t > tQt && rssFlag)
+		if (t >= tQt && rssFlag)
 		{
 			while (1)
 			{
@@ -320,7 +317,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 			}
 		}
 
-		if (!rssFlag && !qFlag) break;
+		//if (!rssFlag && !qFlag) break;
 	}
 
 	if (isinf(sum2)) penaltyFlag = 1;
@@ -446,7 +443,7 @@ int main()
 	FILE *fileRead;
 
 	// Read quantitative data
-	sprintf(dirData, "viralLoad.data");
+	sprintf(dirData, "viralLoad.csv");
 	fileRead = fopen(dirData, "r");
 
 	nData = 0;
@@ -475,11 +472,11 @@ int main()
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
 
-		linea = strtok(renglon, " ");
+		linea = strtok(renglon, ",");
 		sscanf(linea, "%f", &auxFloat);
 		timeQt[nn] = auxFloat;
 
-		linea = strtok(NULL, " ");
+		linea = strtok(NULL, ",");
 		sscanf(linea, "%f", &auxFloat);
 		dataQt_raw[nn] = log10(auxFloat);
 
@@ -491,7 +488,7 @@ int main()
 	int qnData;
 	window *timeQl, *dataQl;
 
-	sprintf(dirData, "qualTcell.data");
+	sprintf(dirData, "qualTcell.csv");
 	fileRead = fopen(dirData, "r");
 
 	qnData = 0;
@@ -520,19 +517,19 @@ int main()
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
 
-		linea = strtok(renglon, " ");
+		linea = strtok(renglon, ",");
 		sscanf(linea, "%f", &auxFloat);
 		timeQl[nn].min = auxFloat;
 
-		linea = strtok(NULL, " ");
+		linea = strtok(NULL, ",");
 		sscanf(linea, "%f", &auxFloat);
 		timeQl[nn].max = auxFloat;
 
-		linea = strtok(NULL, " ");
+		linea = strtok(NULL, ",");
 		sscanf(linea, "%f", &auxFloat);
 		dataQl[nn].min = auxFloat;
 
-		linea = strtok(NULL, " ");
+		linea = strtok(NULL, ",");
 		sscanf(linea, "%f", &auxFloat);
 		dataQl[nn].max = auxFloat;
 
