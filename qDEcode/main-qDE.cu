@@ -62,6 +62,9 @@ typedef struct
 	float tN;
 	float dt;
 
+	float Vmin;
+	float Tmax;
+
 	int D;
 	int Np;
 	int nData;
@@ -232,10 +235,12 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 	int penaltyFlag = 0;
 	int rssFlag = 1;
 	int qFlag = pars.qFlag;
+	int lowLimFlag = 0;
 
 	int nn = 0, qnn = 0;
 	int nData = pars.nData, qnData = pars.qnData;
 	float aux, sum2 = 0.0;
+	float Vmin = pars.Vmin, Tmax = pars.Tmax;
 	float tQt = timeQt[0];
 	window tQl = timeQl[0];
 
@@ -268,12 +273,6 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 		if (Y.X2 < 0.0) Y.X2 = 0.0;
 		if (Y.X3 < 0.0) Y.X3 = 0.0;
 		if (Y.X4 < 0.0) Y.X4 = 0.0;
-
-		if (!rssFlag && t > 1.3*tQt && Y.X3 > 1e2)
-		{
-			penaltyFlag = 1;
-			break;
-		}
 
 
 		// This part calculates the quantitative RSS
@@ -311,6 +310,24 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 				else tQl = timeQl[qnn];
 			}
 			else if (t > tQl.max)
+			{
+				penaltyFlag = 1;
+				break;
+			}
+		}
+
+		if (qFlag)
+		{
+			// Penalties for viral rebound
+			if (!lowLimFlag && Y.X3 < Vmin) lowLimFlag = 1;
+			else if (lowLimFlag && Y.X3 > Vmin)
+			{
+				penaltyFlag = 1;
+				break;
+			}
+
+			// Penalties for reaching the maximum T cell level
+			if (Y.X4 > Tmax)
 			{
 				penaltyFlag = 1;
 				break;
@@ -626,6 +643,9 @@ int main()
 	pars.nData = nData;
 	pars.qnData = qnData;
 	pars.qFlag = qFlag;
+
+	pars.Vmin = 50.0f; // Minimum threshold of viral load
+	pars.Tmax = Tmax;
 
 	// Initial values
         pars.X1_0 = 1e7;
