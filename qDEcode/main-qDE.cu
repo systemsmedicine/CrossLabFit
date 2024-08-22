@@ -235,7 +235,6 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 	int penaltyFlag = 0;
 	int rssFlag = 1;
 	int qFlag = pars.qFlag;
-	int lowLimFlag = 0;
 
 	int nn = 0, qnn = 0;
 	int nData = pars.nData, qnData = pars.qnData;
@@ -300,13 +299,13 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 			}
 		}
 
-		// Qualitative penalties (X4/T cells)
-		if (t > tQl.min && qFlag)
+		// Qualitative penalties 
+		if (t > tQl.min && qFlag == 1)
 		{
 			if (Y.X4 > dataQl[qnn].min && Y.X4 < dataQl[qnn].max) 
 			{
 				qnn++;
-				if (qnn >= qnData) qFlag = 0;
+				if (qnn >= qnData) qFlag = 2;
 				else tQl = timeQl[qnn];
 			}
 			else if (t > tQl.max)
@@ -319,8 +318,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 		if (qFlag)
 		{
 			// Penalties for viral rebound
-			if (!lowLimFlag && Y.X3 < Vmin) lowLimFlag = 1;
-			else if (lowLimFlag && Y.X3 > Vmin)
+			if (!rssFlag && t>1.25*tQt && Y.X3 > Vmin)
 			{
 				penaltyFlag = 1;
 				break;
@@ -666,8 +664,10 @@ int main()
 	{
 		if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 		else sscanf(renglon, "[%f : %f]", &auxL, &auxU);
-		lowerLim[jj] = log10(auxL);
-		upperLim[jj] = log10(auxU);
+		lowerLim[jj] = auxL;
+		upperLim[jj] = auxU;
+		//lowerLim[jj] = log10(auxL);
+		//upperLim[jj] = log10(auxU);
 
 		if (auxL > auxU)
 		{
@@ -816,7 +816,8 @@ int main()
 
 	FILE *fBestPars;
 	fBestPars = fopen("bestPars.dat", "a");
-	for (jj=0; jj<D; jj++) fprintf(fBestPars, "%.4e ", pow(10, pop[iiMin*D + jj]));
+	//for (jj=0; jj<D; jj++) fprintf(fBestPars, "%.4e ", pow(10, pop[iiMin*D + jj]));
+	for (jj=0; jj<D; jj++) fprintf(fBestPars, "%.4f ", pop[iiMin*D + jj]);
 	fprintf(fBestPars, "%.4e\n", minVal);
 	fclose(fBestPars);
 
