@@ -1,6 +1,6 @@
 ### DE parameters
-4096		# Population of parameter vectors (GPU threads)
-2000		# Max iterations
+8192		# Population of parameter vectors (GPU threads)
+4000		# Max iterations
 0.8		# Recombination probability (Cr)
 0.8		# Mutation factor (Fm)
 SEED		# Seed for random numbers
@@ -15,11 +15,11 @@ SEED		# Seed for random numbers
 0		# Resampling for bootstrap? 
 0               # Include qualitative fit?
 
-# Limits [Lower : Upper]
-[1e2 : 1e6]		# V0
-[1e-8 : 1e-4]		# beta
-[1e-8 : 1e-4]		# del_I
-[1e-2 : 1e2]		# p
-[1e-2 : 1e2]		# c
-[1e-8 : 1e-4]		# r
-[1e-2 : 1e2]		# del_T
+# Limits [Lower : Upper] (exponents of 10)
+[2 : 6]		# V0
+[-8 : -4]		# beta
+[-8 : -4]		# del_I
+[-2 : 2]		# p
+[-2 : 2]		# c
+[-8 : -4]		# r
+[-2 : 2]		# del_T
