@@ -14,6 +14,7 @@ SEED		# Seed for random numbers
 7		# Number of parmeters to estimate
 1		# Resampling for bootstrap? 
 0               # Include qualitative fit?
+0               # Test raw T cell data? (cannot both be 1)
 
 # Limits [Lower : Upper]
 [1e2 : 1e6]		# V0

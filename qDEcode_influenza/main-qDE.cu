@@ -227,20 +227,23 @@ __device__ void derivs_step(int idx, param pars, float *pop, comp *Y)
 //-------------------------------------------------------------------------------
 
 __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQt,
-		window *timeQl, window *dataQl, float *costFn)
+		float *timeQt_T, float *dataQt_T, window *timeQl, window *dataQl,
+		float *costFn)
 {
 	int ind = threadIdx.x + blockIdx.x*blockDim.x;
 	if (ind >= pars.Np) return;
 
 	int penaltyFlag = 0;
 	int rssFlag = 1;
+	int rssFlagT = pars.rssFlagT;
 	int qFlag = pars.qFlag;
 
-	int nn = 0, qnn = 0;
-	int nData = pars.nData, qnData = pars.qnData;
+	int nn = 0, nnT = 0, qnn = 0;
+	int nData = pars.nData, nDataT = pars.nDataT, qnData = pars.qnData;
 	float aux, sum2 = 0.0;
 	float Vmin = pars.Vmin, Tmax = pars.Tmax;
 	float tQt = timeQt[0];
+	float tQt_T = timeQt_T[0];
 	window tQl = timeQl[0];
 
 	comp Y;
@@ -282,6 +285,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 				// Data is already in log10
 				if (Y.X3 == 0.0f) Y.X3 = 1e-38;
 				aux = dataQt[nn] - log10(Y.X3); // Virus
+				if (rssFlagT) aux /=  4.992592593; // Manually normalized by now
 				sum2 += aux*aux;
 				nn++;
 
@@ -294,6 +298,29 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 				if (timeQt[nn] != tQt)
 				{
 					tQt = timeQt[nn];
+					break;
+				}
+			}
+		}
+
+		if (t >= tQt_T && rssFlagT)
+		{
+			while (1)
+			{
+				aux = dataQt_T[nnT] - Y.X4; // T cells
+				aux /= 8818015.0; // Manually normalized by now
+				sum2 += aux*aux;
+				nnT++;
+
+				if (nnT >= nDataT)
+				{
+					rssFlagT = 0;
+					break;
+				}
+
+				if (timeQt_T[nnT] != tQt_T)
+				{
+					tQt_T = timeQt_T[nnT];
 					break;
 				}
 			}
@@ -332,7 +359,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 			}
 		}
 
-		//if (!rssFlag && !qFlag) break;
+		//if (!rssFlag && !rssFlagT && !qFlag) break;
 	}
 
 	if (isinf(sum2)) penaltyFlag = 1;
@@ -453,7 +480,7 @@ int main()
 	/*+*+*+*+*+ FETCH DATA	+*+*+*+*+*/
 	int nData, nn;
 	float auxFloat;
-	float *timeQt, *dataQt_raw;
+	float *timeQt, *dataV_raw;
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
@@ -477,7 +504,7 @@ int main()
 	nData--;
 
 	cudaMallocManaged(&timeQt, nData*sizeof(float));
-	dataQt_raw = (float *) malloc(nData*sizeof(float));
+	dataV_raw = (float *) malloc(nData*sizeof(float));
 
 	fileRead = fopen(dirData, "r");
 	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
@@ -493,7 +520,52 @@ int main()
 
 		linea = strtok(NULL, ",");
 		sscanf(linea, "%f", &auxFloat);
-		dataQt_raw[nn] = log10(auxFloat);
+		dataV_raw[nn] = log10(auxFloat);
+
+		nn++;
+	}
+	fclose(fileRead);
+
+	// Read quantitative CD8 T cell data
+	int nDataT;
+	float *timeQt_T, *dataT_raw;
+
+	sprintf(dirData, "CD8_data.csv");
+	fileRead = fopen(dirData, "r");
+
+	nDataT = 0;
+	while (1)
+	{
+		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
+		nDataT++;
+	}
+	fclose(fileRead);
+
+	if (nDataT == 0)
+	{
+		printf("Error: Empty file in %s\n", dirData);
+		exit (1);
+	}
+	nDataT--;
+
+	cudaMallocManaged(&timeQt_T, nDataT*sizeof(float));
+	dataT_raw = (float *) malloc(nDataT*sizeof(float));
+
+	fileRead = fopen(dirData, "r");
+	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
+
+	nn = 0;
+	while (1)
+	{
+		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
+
+		linea = strtok(renglon, ",");
+		sscanf(linea, "%f", &auxFloat);
+		timeQt_T[nn] = auxFloat;
+
+		linea = strtok(NULL, ",");
+		sscanf(linea, "%f", &auxFloat);
+		dataT_raw[nn] = auxFloat;
 
 		nn++;
 	}
@@ -563,7 +635,7 @@ int main()
 	}
 
     	/*+*+*+*+*+ FETCH PARAMETERS +*+*+*+*+*/
-	int Np, itMax, seed, D, bootFlag, qFlag;
+	int Np, itMax, seed, D, bootFlag, rssFlagT, qFlag;
 	float Fm, Cr, t0, tN, dt;
 	int err_flag = 0;
 
@@ -622,6 +694,10 @@ int main()
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &qFlag);
 
+	// Test raw T cell data?
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%d", &rssFlagT);
+
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 
@@ -639,7 +715,9 @@ int main()
 	pars.Np = Np;
 	pars.dt = dt;
 	pars.nData = nData;
+	pars.nDataT = nDataT;
 	pars.qnData = qnData;
+	pars.rssFlagT = rssFlagT;
 	pars.qFlag = qFlag;
 
 	pars.Vmin = 50.0f; // Minimum threshold of viral load
@@ -698,11 +776,17 @@ int main()
 	float *dataQt;
 	cudaMallocManaged(&dataQt, nData*sizeof(float));
 
+	float *dataQt_T;
+	cudaMallocManaged(&dataQt_T, nDataT*sizeof(float));
+
 	if (bootFlag)
 	{
 		int auxInt;
-		int tt = 0;
-		float oldTime = timeQt[0];
+		int tt;
+		float oldTime;
+
+		tt = 0;
+		oldTime = timeQt[0];
 		for (nn=1; nn<=nData; nn++)
 		{
 			tt++;
@@ -713,7 +797,7 @@ int main()
 			{
 				auxInt = tt*ranUni.doub();
 				// Using modulo for safety (auxInt!=tt)
-				dataQt[ii] = dataQt_raw[nn-tt+(auxInt%tt)];
+				dataQt[ii] = dataV_raw[nn-tt+(auxInt%tt)];
 			}
 
 			if (nn == nData) break;
@@ -721,9 +805,35 @@ int main()
 			tt = 0;
 			oldTime = timeQt[nn];
 		}
+
+		tt = 0;
+		oldTime = timeQt_T[0];
+		for (nn=1; nn<=nDataT; nn++)
+		{
+			tt++;
+
+			if(nn < nDataT) if (oldTime == timeQt_T[nn]) continue;
+
+			for (ii=nn-tt; ii<nn; ii++)
+			{
+				auxInt = tt*ranUni.doub();
+				// Using modulo for safety (auxInt!=tt)
+				dataQt_T[ii] = dataT_raw[nn-tt+(auxInt%tt)];
+			}
+
+			if (nn == nDataT) break;
+
+			tt = 0;
+			oldTime = timeQt_T[nn];
+		}
 	}
-	else for (nn=0; nn<nData; nn++) dataQt[nn] = dataQt_raw[nn];
-	free(dataQt_raw);
+	else
+	{
+		for (nn=0; nn<nData; nn++) dataQt[nn] = dataV_raw[nn];
+		for (nn=0; nn<nDataT; nn++) dataQt_T[nn] = dataT_raw[nn];
+	}
+	free(dataV_raw);
+	free(dataT_raw);
 
 	int ths, blks;
 	float *costFn, *d_newCostFn;
@@ -736,7 +846,7 @@ int main()
 	blks = 1 + (Np - 1)/ths;
 
 	// Calculate cost function values
-	costFunction<<<blks, ths>>>(pars, pop, timeQt, dataQt, timeQl, dataQl, costFn);
+	costFunction<<<blks, ths>>>(pars, pop, timeQt, dataQt, timeQt_T, dataQt_T, timeQl, dataQl, costFn);
 	cudaDeviceSynchronize();
 
 	//for (nn=0; nn<Np; nn++) printf("%.2e\n", costFn[nn]);
@@ -787,7 +897,7 @@ int main()
 		newPopulation<<<blks, ths>>>(Np, D, Cr, Fm, d_randUni, iiMut, lowerLim, upperLim, pop, d_newPop);
 
 		// Calculate cost function values
-		costFunction<<<blks, ths>>>(pars, d_newPop, timeQt, dataQt, timeQl, dataQl, d_newCostFn);
+		costFunction<<<blks, ths>>>(pars, d_newPop, timeQt, dataQt, timeQt_T, dataQt_T, timeQl, dataQl, d_newCostFn);
 
 		// Select the best vectors between new ones and old ones
 		selection<<<blks, ths>>>(Np, D, pop, d_newPop, costFn, d_newCostFn);
@@ -824,10 +934,12 @@ int main()
 	printf("FINISHED\n");
 
 	cudaFree(timeQt);
+	cudaFree(timeQt_T);
 	cudaFree(timeQl);
 	cudaFree(lowerLim);
 	cudaFree(upperLim);
 	cudaFree(dataQt);
+	cudaFree(dataQt_T);
 	cudaFree(dataQl);
 	cudaFree(iiMut);
 	cudaFree(pop);
