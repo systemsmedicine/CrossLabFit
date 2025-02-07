@@ -1,0 +1,26 @@
+### DE parameters
+4096		# Population of parameter vectors (GPU threads)
+1000		# Max iterations
+0.8		# Recombination probability (Cr)
+0.8		# Mutation factor (Fm)
+SEED		# Seed for random numbers
+
+### Initial conditions for ODE solve
+0.0		# Initial time
+35.0		# Final time
+0.05		# Step time
+
+### Parameters to estimate (ranges)
+7		# Number of parmeters to estimate
+1		# Resampling for bootstrap? 
+0               # Include qualitative fit?
+0               # Test raw T cell data? (cannot both be 1)
+
+# Limits [Lower : Upper]
+[1e2 : 1e6]		# V0
+[1e-8 : 1e-4]		# beta
+[1e-8 : 1e-4]		# del_I
+[1e-2 : 1e2]		# p
+[1e-2 : 1e2]		# c
+[1e-8 : 1e-4]		# r
+[1e-2 : 1e2]		# del_T
