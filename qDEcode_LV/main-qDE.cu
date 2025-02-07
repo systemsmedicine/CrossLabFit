@@ -129,12 +129,6 @@ __device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 	dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
 	dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
 
-	// within-host model
-	//float T0 = 1e6;
-	//dotY->X1 = a0*Y.X1*(1 - Y.X1/a1) - a2*Y.X1*Y.X2 - a3*Y.X1;
-	//dotY->X2 = a4*T0 + a5*Y.X2*(Y.X1*Y.X1/(Y.X1*Y.X1 + a6*a6)) - a4*Y.X2;
-	//dotY->X3 = 0.0;
-
 	return;
 }
 

@@ -68,8 +68,10 @@ typedef struct
 	int D;
 	int Np;
 	int nData;
+	int nDataT;
 	int qnData;
 	int qFlag;
+	int rssFlagT;
 } 
 param;
 
@@ -139,7 +141,7 @@ __device__ void modelInf(int idx, param pars, float *pop, comp Y, comp *dotY)
 	ii++;
 	float a6 = pow(10, pop[idx + ii]);
 
-	/* Influenza model
+	/* Influenza model equations:
 	  U = X1; I = X2; V = X3; T = X4;
 	  a0 = V0 = X3_0
 	  a1 = beta
@@ -285,7 +287,6 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 				// Data is already in log10
 				if (Y.X3 == 0.0f) Y.X3 = 1e-38;
 				aux = dataQt[nn] - log10(Y.X3); // Virus
-				if (rssFlagT) aux /=  4.992592593; // Manually normalized by now
 				sum2 += aux*aux;
 				nn++;
 
@@ -307,8 +308,8 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 		{
 			while (1)
 			{
-				aux = dataQt_T[nnT] - Y.X4; // T cells
-				aux /= 8818015.0; // Manually normalized by now
+				// Data is already in log10
+				aux = dataQt_T[nnT] - log10(Y.X4); // T cells
 				sum2 += aux*aux;
 				nnT++;
 
@@ -565,7 +566,7 @@ int main()
 
 		linea = strtok(NULL, ",");
 		sscanf(linea, "%f", &auxFloat);
-		dataT_raw[nn] = auxFloat;
+		dataT_raw[nn] = log10(auxFloat);
 
 		nn++;
 	}
@@ -717,8 +718,9 @@ int main()
 	pars.nData = nData;
 	pars.nDataT = nDataT;
 	pars.qnData = qnData;
-	pars.rssFlagT = rssFlagT;
 	pars.qFlag = qFlag;
+	if (!qFlag) pars.rssFlagT = rssFlagT;
+	else pars.rssFlagT = 0;
 
 	pars.Vmin = 50.0f; // Minimum threshold of viral load
 	pars.Tmax = Tmax;
