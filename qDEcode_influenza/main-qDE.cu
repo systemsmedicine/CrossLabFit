@@ -364,7 +364,8 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 	}
 
 	if (isinf(sum2)) penaltyFlag = 1;
-	costFn[ind] = penaltyFlag ? 1e38 : sum2;
+	//costFn[ind] = penaltyFlag ? 1e38 : sum2;
+	costFn[ind] = 12300;
 
 	return;
 }
@@ -471,6 +472,16 @@ float *costFn, float *newCostFn)
 	}
 	costFn[ind] = newCostFn[ind];
 
+	return;
+}
+
+//-------------------------------------------------------------------------------
+
+__global__ void testFn(int Np, float *costFn)
+{
+	int ind = threadIdx.x + blockIdx.x*blockDim.x;
+	if (ind >= Np) return;
+	costFn[ind] = 12300;
 	return;
 }
 
@@ -847,11 +858,14 @@ int main()
 	ths = (Np < THS_MAX) ? nextPow2(Np) : THS_MAX;
 	blks = 1 + (Np - 1)/ths;
 
+	testFn<<<blks, ths>>>(Np, costFn);
+
 	// Calculate cost function values
-	costFunction<<<blks, ths>>>(pars, pop, timeQt, dataQt, timeQt_T, dataQt_T, timeQl, dataQl, costFn);
+	//costFunction<<<blks, ths>>>(pars, pop, timeQt, dataQt, timeQt_T, dataQt_T, timeQl, dataQl, costFn);
 	cudaDeviceSynchronize();
 
-	//for (nn=0; nn<Np; nn++) printf("%.2e\n", costFn[nn]);
+	for (nn=0; nn<Np; nn++) printf("%.2e\n", costFn[nn]);
+	exit(1);
 
     	/*+*+*+*+*+ START OPTIMIZATION +*+*+*+*+*/
 	int it, xx, yy, zz;
