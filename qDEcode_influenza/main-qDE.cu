@@ -90,40 +90,6 @@ long nextPow2(long x)
 
 //-------------------------------------------------------------------------------
 
-//__device__ void modelLV(int idx, param pars, float *pop, comp Y, comp *dotY)
-//{
-//	int ii = 0;
-//	float a0 = pop[idx + ii];
-//	ii++;
-//	float a1 = pop[idx + ii];
-//	ii++;
-//	float a2 = pop[idx + ii];
-//	ii++;
-//	float a3 = pop[idx + ii];
-//	ii++;
-//	float a4 = pop[idx + ii];
-//	ii++;
-//	float a5 = pop[idx + ii];
-//	ii++;
-//	float a6 = pop[idx + ii];
-//	ii++;
-//	float a7 = pop[idx + ii];
-//	ii++;
-//	float a8 = pop[idx + ii];
-//	ii++;
-//	float a9 = pop[idx + ii];
-//
-//	// Three-species cycle LV model
-//	dotY->X1 = a0*Y.X1 - a1*Y.X1 - a2*Y.X1*Y.X2 + a3*Y.X1*Y.X3;
-//	dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
-//	dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
-//	dotY->X4 = 0.0;
-//
-//	return;
-//}
-
-//-------------------------------------------------------------------------------
-
 __device__ void modelInf(int idx, param pars, float *pop, comp Y, comp *dotY)
 {
 	int ii = 0;
@@ -163,7 +129,7 @@ __device__ void modelInf(int idx, param pars, float *pop, comp Y, comp *dotY)
 
 //-------------------------------------------------------------------------------
 
-__device__ void derivs_step(int idx, param pars, float *pop, comp *Y)
+__device__ void deriv_step(int idx, param pars, float *pop, comp *Y)
 {
 	float h = pars.dt;
 	comp Yold, Ytemp, k1, k2, k3, k4, k5, k6;
@@ -174,7 +140,6 @@ __device__ void derivs_step(int idx, param pars, float *pop, comp *Y)
 	Yold.X3 = Y->X3;
 	Yold.X4 = Y->X4;
 	
-	//modelLV(idx, pars, pop, Yold, &k1);
 	modelInf(idx, pars, pop, Yold, &k1);
 
 	Ytemp.X1 = Yold.X1 + h*A21*k1.X1;
@@ -182,7 +147,6 @@ __device__ void derivs_step(int idx, param pars, float *pop, comp *Y)
 	Ytemp.X3 = Yold.X3 + h*A21*k1.X3;
 	Ytemp.X4 = Yold.X4 + h*A21*k1.X4;
 
-	//modelLV(idx, pars, pop, Ytemp, &k2);
 	modelInf(idx, pars, pop, Ytemp, &k2);
 
 	Ytemp.X1 = Yold.X1 + h*(A31*k1.X1 + A32*k2.X1);
@@ -190,7 +154,6 @@ __device__ void derivs_step(int idx, param pars, float *pop, comp *Y)
 	Ytemp.X3 = Yold.X3 + h*(A31*k1.X3 + A32*k2.X3);
 	Ytemp.X4 = Yold.X4 + h*(A31*k1.X4 + A32*k2.X4);
 
-	//modelLV(idx, pars, pop, Ytemp, &k3);
 	modelInf(idx, pars, pop, Ytemp, &k3);
 
 	Ytemp.X1 = Yold.X1 + h*(A41*k1.X1 + A42*k2.X1 + A43*k3.X1);
@@ -198,7 +161,6 @@ __device__ void derivs_step(int idx, param pars, float *pop, comp *Y)
 	Ytemp.X3 = Yold.X3 + h*(A41*k1.X3 + A42*k2.X3 + A43*k3.X3);
 	Ytemp.X4 = Yold.X4 + h*(A41*k1.X4 + A42*k2.X4 + A43*k3.X4);
 
-	//modelLV(idx, pars, pop, Ytemp, &k4);
 	modelInf(idx, pars, pop, Ytemp, &k4);
 
 	Ytemp.X1 = Yold.X1 + h*(A51*k1.X1 + A52*k2.X1 + A53*k3.X1 + A54*k4.X1);
@@ -206,7 +168,6 @@ __device__ void derivs_step(int idx, param pars, float *pop, comp *Y)
 	Ytemp.X3 = Yold.X3 + h*(A51*k1.X3 + A52*k2.X3 + A53*k3.X3 + A54*k4.X3);
 	Ytemp.X4 = Yold.X4 + h*(A51*k1.X4 + A52*k2.X4 + A53*k3.X4 + A54*k4.X4);
 
-	//modelLV(idx, pars, pop, Ytemp, &k5);
 	modelInf(idx, pars, pop, Ytemp, &k5);
 
 	Ytemp.X1 = Yold.X1 + h*(A61*k1.X1 + A62*k2.X1 + A63*k3.X1 + A64*k4.X1 + A65*k5.X1);
@@ -214,7 +175,6 @@ __device__ void derivs_step(int idx, param pars, float *pop, comp *Y)
 	Ytemp.X3 = Yold.X3 + h*(A61*k1.X3 + A62*k2.X3 + A63*k3.X3 + A64*k4.X3 + A65*k5.X3);
 	Ytemp.X4 = Yold.X4 + h*(A61*k1.X4 + A62*k2.X4 + A63*k3.X4 + A64*k4.X4 + A65*k5.X4);
 
-	//modelLV(idx, pars, pop, Ytemp, &k6);
 	modelInf(idx, pars, pop, Ytemp, &k6);
 
 	// New Y values
@@ -262,7 +222,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt, float *dataQ
 	while (t <= pars.tN)
 	{
 		// Dormand-Prince method to compute the next state
-		derivs_step(idx, pars, pop, &Y);
+		deriv_step(idx, pars, pop, &Y);
 		t += h;
 
 		// Check for NaN and inf values
@@ -848,7 +808,8 @@ int main()
 	blks = 1 + (Np - 1)/ths;
 
 	// Calculate cost function values
-	costFunction<<<blks, ths>>>(pars, pop, timeQt, dataQt, timeQt_T, dataQt_T, timeQl, dataQl, costFn);
+	costFunction<<<blks, ths>>>(pars, pop, timeQt, dataQt, timeQt_T, dataQt_T,
+			timeQl, dataQl, costFn);
 	cudaDeviceSynchronize();
 
 

@@ -70,11 +70,12 @@ typedef struct
 
 	int D;
 	int Np;
-	int nData_X1;
-	int nData_X3;
-	int qnData_X3;
-	int rssFlag_X3;
-	int qFlag_X3;
+	int nData;
+	int qnData_x3;
+	int qnData_x2;
+	int qflag_x2;
+	int qflag_x3;
+	int rssFlag_x3;
 } 
 param;
 
@@ -94,7 +95,7 @@ long nextPow2(long x)
 
 //-------------------------------------------------------------------------------
 
-__device__ void modelLV(int idx, param pars, float *pop, comp Y, comp *dotY)
+__device__ void derivs(int idx, param pars, float *pop, comp Y, comp *dotY)
 {
 	int ii = 0;
 	float a0 = pop[idx + ii];
@@ -117,7 +118,7 @@ __device__ void modelLV(int idx, param pars, float *pop, comp Y, comp *dotY)
 	ii++;
 	float a9 = pop[idx + ii];
 
-	// Three-species LV model
+	// Three-species cycle LV model
 	dotY->X1 = a0*Y.X1 - a1*Y.X1 - a2*Y.X1*Y.X2 + a3*Y.X1*Y.X3;
 	dotY->X2 = a4*Y.X1*Y.X2 - a5*Y.X2 - a6*Y.X2*Y.X3;
 	dotY->X3 = -a7*Y.X1*Y.X3 + a8*Y.X2*Y.X3 - a9*Y.X3;
@@ -126,176 +127,181 @@ __device__ void modelLV(int idx, param pars, float *pop, comp Y, comp *dotY)
 }
 
 //-------------------------------------------------------------------------------
-
-__device__ void deriv_step(int idx, param pars, float *pop, comp *Y)
+__global__ void costFunction(param pars, float *pop, float *timeData, float *dataX1,
+		float *qTime_x2, float *qData_x2, float *qTime_x3, float *qData_x3, float *valCostFn)
 {
-        float h = pars.dt;
-        comp Yold, Ytemp, k1, k2, k3, k4, k5, k6;
+	int ind;
 
-        // Old Y values
-        Yold.X1 = Y->X1;
-        Yold.X2 = Y->X2;
-        Yold.X3 = Y->X3;
-
-        modelLV(idx, pars, pop, Yold, &k1);
-
-        Ytemp.X1 = Yold.X1 + h*A21*k1.X1;
-        Ytemp.X2 = Yold.X2 + h*A21*k1.X2;
-        Ytemp.X3 = Yold.X3 + h*A21*k1.X3;
-
-        modelLV(idx, pars, pop, Ytemp, &k2);
-
-        Ytemp.X1 = Yold.X1 + h*(A31*k1.X1 + A32*k2.X1);
-        Ytemp.X2 = Yold.X2 + h*(A31*k1.X2 + A32*k2.X2);
-        Ytemp.X3 = Yold.X3 + h*(A31*k1.X3 + A32*k2.X3);
-
-        modelLV(idx, pars, pop, Ytemp, &k3);
-
-        Ytemp.X1 = Yold.X1 + h*(A41*k1.X1 + A42*k2.X1 + A43*k3.X1);
-        Ytemp.X2 = Yold.X2 + h*(A41*k1.X2 + A42*k2.X2 + A43*k3.X2);
-        Ytemp.X3 = Yold.X3 + h*(A41*k1.X3 + A42*k2.X3 + A43*k3.X3);
-
-        modelLV(idx, pars, pop, Ytemp, &k4);
-
-        Ytemp.X1 = Yold.X1 + h*(A51*k1.X1 + A52*k2.X1 + A53*k3.X1 + A54*k4.X1);
-        Ytemp.X2 = Yold.X2 + h*(A51*k1.X2 + A52*k2.X2 + A53*k3.X2 + A54*k4.X2);
-        Ytemp.X3 = Yold.X3 + h*(A51*k1.X3 + A52*k2.X3 + A53*k3.X3 + A54*k4.X3);
-
-        modelLV(idx, pars, pop, Ytemp, &k5);
-
-        Ytemp.X1 = Yold.X1 + h*(A61*k1.X1 + A62*k2.X1 + A63*k3.X1 + A64*k4.X1 + A65*k5.X1);
-        Ytemp.X2 = Yold.X2 + h*(A61*k1.X2 + A62*k2.X2 + A63*k3.X2 + A64*k4.X2 + A65*k5.X2);
-        Ytemp.X3 = Yold.X3 + h*(A61*k1.X3 + A62*k2.X3 + A63*k3.X3 + A64*k4.X3 + A65*k5.X3);
-
-        modelLV(idx, pars, pop, Ytemp, &k6);
-
-        // New Y values
-        Y->X1 = Yold.X1 + h*(A71*k1.X1 + A73*k3.X1 + A74*k4.X1 + A75*k5.X1 + A76*k6.X1);
-        Y->X2 = Yold.X2 + h*(A71*k1.X2 + A73*k3.X2 + A74*k4.X2 + A75*k5.X2 + A76*k6.X2);
-        Y->X3 = Yold.X3 + h*(A71*k1.X3 + A73*k3.X3 + A74*k4.X3 + A75*k5.X3 + A76*k6.X3);
-
-        return;
-}
-
-//-------------------------------------------------------------------------------
-
-__global__ void costFunction(param pars, float *pop, float *timeQt_X1, float *dataQt_X1,
-		float *timeQt_X3, float *dataQt_X3, window *timeQl_X3, window *dataQl_X3,
-		float *costFn)
-{
-	int ind = threadIdx.x + blockIdx.x*blockDim.x;
+	ind = threadIdx.x + blockIdx.x*blockDim.x;
 	if (ind >= pars.Np) return;
 
-	int penaltyFlag = 0;
-	int rssFlag_X1 = 1;
-	int rssFlag_X3 = pars.rssFlag_X3;
-	int qFlag_X3 = pars.qFlag_X3;
+	int idx;
+	float t0, tN, tt;
+	comp Y, dotY;
 
-	int nn_X1 = 0, nn_X3 = 0, qnn_X3 = 0;
-        int nData_X1 = pars.nData_X1,
-	    nData_X3 = pars.nData_X3,
-	    qnData_X3 = pars.qnData_X3;
-        float aux, sum2 = 0.0;
-        float tQt_X1 = timeQt_X1[0];
-        float tQt_X3 = timeQt_X3[0];
-        window tQl_X3 = timeQl_X3[0];
-
-	comp Y;
-	int idx = ind*pars.D;
-	float t = pars.t0;
-	float h = pars.dt;
+	idx = ind*pars.D;
+	t0 = pars.t0;
+	tN = pars.tN;
 
 	// Initial values
 	Y.X1 = pars.X1_0;
 	Y.X2 = pars.X2_0;
 	Y.X3 = pars.X3_0;
 
-	while (t <= pars.tN)
+	derivs(idx, pars, pop, Y, &dotY);
+
+	// ODE solver (5th-order Dormand-Prince)
+
+	comp ytemp, k2, k3, k4, k5, k6, dotYnew, yOut;
+	float aux;
+	int nn, qnn_x3, qnn_x2;
+	float h;
+
+	float ttData, sum2, qtt_x3, qtt_x2; 
+	float windowTime, windowVal; 
+	int nData, qnData_x3, qnData_x2;
+	short nanFlag, flag, qflag_x3, qflag_x2;
+
+	tt = t0;
+	h = pars.dt;
+
+	nn = 0;
+	qnn_x3 = 0;
+	qnn_x2 = 0;
+	ttData = timeData[0];
+	qtt_x3 = qTime_x3[0];
+	qtt_x2 = qTime_x2[0];
+	sum2 = 0.0;
+	nData = pars.nData;
+	qnData_x3 = pars.qnData_x3;
+	qnData_x2 = pars.qnData_x2;
+	flag = 1;
+	qflag_x2 = pars.qflag_x2;
+	qflag_x3 = pars.qflag_x3;
+	windowTime = pars.windowTime;
+	windowVal = pars.windowVal;
+
+	do
 	{
-		// Dormand-Prince method to compute the next state
-                deriv_step(idx, pars, pop, &Y);
-                t += h;
+		ytemp.X1 = Y.X1 + h*A21*dotY.X1;
+		ytemp.X2 = Y.X2 + h*A21*dotY.X2;
+		ytemp.X3 = Y.X3 + h*A21*dotY.X3;
 
-		// Check for NaN and inf values
-                if (isnan(Y.X1) || isnan(Y.X2) || isnan(Y.X3)
-                        || isinf(Y.X1) || isinf(Y.X2) || isinf(Y.X3))
-                {
-                        penaltyFlag = 1;
-                        break;
-                }
+		derivs(idx, pars, pop, ytemp, &k2);
 
-		if (Y.X1 < 0.0) Y.X1 = 0.0;
-                if (Y.X2 < 0.0) Y.X2 = 0.0;
-                if (Y.X3 < 0.0) Y.X3 = 0.0;
+		ytemp.X1 = Y.X1 + h*(A31*dotY.X1 + A32*k2.X1);
+		ytemp.X2 = Y.X2 + h*(A31*dotY.X2 + A32*k2.X2);
+		ytemp.X3 = Y.X3 + h*(A31*dotY.X3 + A32*k2.X3);
 
-		// This part calculates the quantitative RSS
-		if (t >= tQt_X1 && rssFlag_X1)
+		derivs(idx, pars, pop, ytemp, &k3);
+
+		ytemp.X1 = Y.X1 + h*(A41*dotY.X1 + A42*k2.X1 + A43*k3.X1);
+		ytemp.X2 = Y.X2 + h*(A41*dotY.X2 + A42*k2.X2 + A43*k3.X2);
+		ytemp.X3 = Y.X3 + h*(A41*dotY.X3 + A42*k2.X3 + A43*k3.X3);
+
+		derivs(idx, pars, pop, ytemp, &k4);
+
+		ytemp.X1 = Y.X1 + h*(A51*dotY.X1 + A52*k2.X1 + A53*k3.X1 + A54*k4.X1);
+		ytemp.X2 = Y.X2 + h*(A51*dotY.X2 + A52*k2.X2 + A53*k3.X2 + A54*k4.X2);
+		ytemp.X3 = Y.X3 + h*(A51*dotY.X3 + A52*k2.X3 + A53*k3.X3 + A54*k4.X3);
+
+		derivs(idx, pars, pop, ytemp, &k5);
+
+		ytemp.X1 = Y.X1 + h*(A61*dotY.X1 + A62*k2.X1 + A63*k3.X1 + A64*k4.X1 + A65*k5.X1);
+		ytemp.X2 = Y.X2 + h*(A61*dotY.X2 + A62*k2.X2 + A63*k3.X2 + A64*k4.X2 + A65*k5.X2);
+		ytemp.X3 = Y.X3 + h*(A61*dotY.X3 + A62*k2.X3 + A63*k3.X3 + A64*k4.X3 + A65*k5.X3);
+
+		derivs(idx, pars, pop, ytemp, &k6);
+
+		yOut.X1 = Y.X1 + h*(A71*dotY.X1 + A73*k3.X1 + A74*k4.X1 + A75*k5.X1 + A76*k6.X1);
+		yOut.X2 = Y.X2 + h*(A71*dotY.X2 + A73*k3.X2 + A74*k4.X2 + A75*k5.X2 + A76*k6.X2);
+		yOut.X3 = Y.X3 + h*(A71*dotY.X3 + A73*k3.X3 + A74*k4.X3 + A75*k5.X3 + A76*k6.X3);
+
+		derivs(idx, pars, pop, yOut, &dotYnew);
+
+		nanFlag = 0;
+		if (isnan(yOut.X1)) nanFlag = 1;
+		if (isnan(yOut.X2)) nanFlag = 1;
+		if (isnan(yOut.X3)) nanFlag = 1;
+
+	        if (yOut.X1 < 0.0) nanFlag = 1;
+	        if (yOut.X2 < 0.0) nanFlag = 1;
+	        if (yOut.X3 < 0.0) nanFlag = 1;
+
+		if (nanFlag) break;
+
+		tt += h;
+
+		// This part calculates the RMS
+		if (tt > ttData && flag)
 		{
 			while (1)
 			{
-				aux = dataQt_X1[nn_X1] - Y.X1;
+				aux = dataX1[nn] - yOut.X1;
+				//aux = log10(dataX1[nn]) - log(yOut.X1);
 				sum2 += aux*aux;
-				nn_X1++;
-
-				if (nn_X1 >= nData_X1)
+				nn++;
+				if (nn >= nData)
 				{
-					rssFlag_X1 = 0;
+					flag = 0;
 					break;
 				}
-
-				if (timeQt_X1[nn_X1] != tQt_X1)
+				else
 				{
-					tQt_X1 = timeQt_X1[nn_X1];
-					break;
-
+					aux = timeData[nn];
+					if (aux != ttData)
+					{
+						ttData = aux;
+						break;
+					}
 				}
 			}
 		}
 
-		if (t >= tQt_X3 && rssFlag_X3)
+		// This calculates the qualitative part
+		if (tt > qtt_x2 - windowTime/2.0 && qflag_x2)
 		{
-			while (1)
+			aux = qData_x2[qnn_x2] - yOut.X2;
+			if (aux < 0.0) aux *= -1;
+			if (aux < windowVal/2.0)
 			{
-				aux = dataQt_X3[nn_X3] - Y.X3;
-				sum2 += aux*aux;
-				nn_X3++;
-
-				if (nn_X3 >= nData_X3)
-				{
-					rssFlag_X3 = 0;
-					break;
-				}
-
-				if (timeQt_X3[nn_X3] != tQt_X3)
-				{
-					tQt_X1 = timeQt_X1[nn_X3];
-					break;
-
-				}
+				qnn_x2++;
+				if (qnn_x2 >= qnData_x2) qflag_x2 = 0;
+				else qtt_x2 = qTime_x2[qnn_x2];
+			}
+			else if (tt > qtt_x2 + windowTime/2.0)
+			{
+				nanFlag = 1;
+				break;
 			}
 		}
 
-		// Qualitative penalties
-		if (t > tQl_X3.min && qFlag_X3)
+		// This calculates the qualitative part
+		if (tt > qtt_x3 - windowTime/2.0 && qflag_x3)
 		{
-			if (Y.X3 > dataQl_X3[qnn_X3].min && Y.X3 < dataQl_X3[qnn_X3].max)
-                        {
-                                qnn_X3++;
-                                if (qnn_X3 >= qnData_X3) qFlag_X3 = 0;
-                                else tQl_X3 = timeQl_X3[qnn_X3];
-                        }
-                        else if (t > tQl_X3.max)
-                        {
-                                penaltyFlag = 1;
-                                break;
-                        }
+			aux = qData_x3[qnn_x3] - yOut.X3;
+			if (aux < 0.0) aux *= -1;
+			if (aux < windowVal/2.0)
+			{
+				qnn_x3++;
+				if (qnn_x3 >= qnData_x3) qflag_x3 = 0;
+				else qtt_x3 = qTime_x3[qnn_x3];
+			}
+			else if (tt > qtt_x3 + windowTime/2.0)
+			{
+				nanFlag = 1;
+				break;
+			}
 		}
 
-		if (!rssFlag_X1 && !rssFlag_X3 && !qFlag_X3) break;
+		if (!flag && !qflag_x2 && !qflag_x3) break;
+
+		dotY = dotYnew;
+		Y = yOut;
 	}
+	while (tt <= tN);
 
-	if (isinf(sum2)) penaltyFlag = 1;
-        costFn[ind] = penaltyFlag ? 1e38 : sum2;
+	valCostFn[ind] = nanFlag ? 1e10 : sqrt(sum2/nData);
 
 	return;
 }
@@ -303,7 +309,7 @@ __global__ void costFunction(param pars, float *pop, float *timeQt_X1, float *da
 //-------------------------------------------------------------------------------
 
 __global__ void newPopulation(int Np, int D, float Cr, float Fm, float *randUni,
-		int3 *iiMut, float *lowerLim, float *upperLim, float *pop, float *newPop)
+int3 *iiMut, float *lowerLim, float *upperLim, float *pop, float *newPop)
 {
 	int ind, jj, idx, auxInt, flag = 0;
 	int3 iiM, idxM;
@@ -332,12 +338,8 @@ __global__ void newPopulation(int Np, int D, float Cr, float Fm, float *randUni,
 
 		if (randUni[idx] <= Cr)
 		{
-			// DE/rand/1 || DE/best/1
-                        trial = pop[idxM.x] + Fm*(pop[idxM.y] - pop[idxM.z]);
-                        // DE/current-to-best/1
-                        //trial = pop[idx] + Fm*(pop[idxM.x] - pop[idx])
-                        //              + Fm*(pop[idxM.y] - pop[idxM.z]);
-
+			trial = pop[idxM.x] + Fm*(pop[idxM.y] - pop[idxM.z]); // DE/rand/1 || DE/best/1
+			//trial = pop[idx] + Fm*(pop[idxM.x] - pop[idx]) + Fm*(pop[idxM.y] - pop[idxM.z]); // DE/current-to-best/1
 			if (trial < auxL) trial = auxL;
 			if (trial > auxU) trial = auxU;
 
@@ -368,12 +370,8 @@ __global__ void newPopulation(int Np, int D, float Cr, float Fm, float *randUni,
 		idxM.y = iiM.y*D + jj;
 		idxM.z = iiM.z*D + jj;
 
-		// DE/rand/1 || DE/best/1
-                trial = pop[idxM.x] + Fm*(pop[idxM.y] - pop[idxM.z]);
-                // DE/current-to-best/1
-                //trial = pop[idx] + Fm*(pop[idxM.x] - pop[idx])
-                //              + Fm*(pop[idxM.y] - pop[idxM.z]);
-
+		trial = pop[idxM.x] + Fm*(pop[idxM.y] - pop[idxM.z]); // DE/rand/1 || DE/best/1
+		//trial = pop[idx] + Fm*(pop[idxM.x] - pop[idx]) + Fm*(pop[idxM.y] - pop[idxM.z]); // DE/current-to-best/1
 		if (trial < auxL) trial = auxL;
 		if (trial > auxU) trial = auxU;
 
@@ -386,21 +384,21 @@ __global__ void newPopulation(int Np, int D, float Cr, float Fm, float *randUni,
 //-------------------------------------------------------------------------------
 
 __global__ void selection(int Np, int D, float *pop, float *newPop,
-		float *costFn, float *newCostFn)
+float *valCostFn, float *newValCostFn)
 {
 	int ind, jj, idx;
 
 	ind = threadIdx.x + blockIdx.x*blockDim.x;
 	if (ind >= Np) return;
 
-	if (newCostFn[ind] > costFn[ind]) return;
+	if  (newValCostFn[ind] > valCostFn[ind]) return;
 
 	for (jj=0; jj<D; jj++)
 	{
 		idx = ind*D + jj;
 		pop[idx] = newPop[idx];
 	}
-	costFn[ind] = newCostFn[ind];
+	valCostFn[ind] = newValCostFn[ind];
 
 	return;
 }
@@ -409,35 +407,37 @@ __global__ void selection(int Np, int D, float *pop, float *newPop,
 
 int main()
 {
-	/*+*+*+*+*+ FETCH DATA	+*+*+*+*+*/
-	int nData_X1, nData_X3, nn;
+	/*+*+*+*+*+ START TO FETCH DATA	+*+*+*+*+*/
+	int nData, nn;
 	float auxFloat;
-	float *timeQt_X1, *timeQt_X3;
-	float *dataQt_X1_raw, *dataQt_X3_raw;
+	float *timeData, *orgDataX1;
 	char renglon[200], dirData[500], *linea;
 	FILE *fileRead;
 
-	// Raw data for X1 variable
-	sprintf(dirData, "LVdata_noise.csv");
+	sprintf(dirData, "LVdata_noise.data");
+	//sprintf(dirData, "pyNotebooks/cycle/LVdata_noise.data");
+	//sprintf(dirData, "pyNotebooks/linear/LVdata_noise.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_noise.data");
+	//sprintf(dirData, "pyNotebooks/covid-19/E-viral_load.data");
 	fileRead = fopen(dirData, "r");
 
-	nData_X1 = 0;
+	nData = 0;
 	while (1)
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
-		nData_X1++;
+		nData++;
 	}
 	fclose(fileRead);
 
-	if (nData_X1 == 0)
+	if (nData == 0)
 	{
-		printf("Error: Empty file in %s\n", dirData);
+		printf("Error: no hay datos\n");
 		exit (1);
 	}
-	nData_X1--;
+	nData--;
 
-	cudaMallocManaged(&timeQt_X1, nData_X1*sizeof(float));
-	dataQt_X1_raw = (float *) malloc(nData_X1*sizeof(float));
+	cudaMallocManaged(&timeData, nData*sizeof(float));
+	orgDataX1 = (float *) malloc(nData*sizeof(float));
 
 	fileRead = fopen(dirData, "r");
 	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
@@ -447,39 +447,45 @@ int main()
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
 
-		linea = strtok(renglon, ",");
+		linea = strtok(renglon, " ");
 		sscanf(linea, "%f", &auxFloat);
-		timeQt_X1[nn] = auxFloat;
+		timeData[nn] = auxFloat;
 
-		linea = strtok(NULL, ",");
+		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxFloat);
-		dataQt_X1_raw[nn] = auxFloat;
+		orgDataX1[nn] = auxFloat;
 
 		nn++;
 	}
 	fclose(fileRead);
 
-	// Raw data for X3 variable
-	sprintf(dirData, "LVdata_noise_X3.csv");
+	int qnData_x3;
+	float *qTime_x3, *qData_x3;
+
+	sprintf(dirData, "LVdata_qual_x3.data");
+	//sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x3.data");
+	//sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x3.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x3.data");
+	//sprintf(dirData, "pyNotebooks/covid-19/cd8_sev.data");
 	fileRead = fopen(dirData, "r");
 
-	nData_X3 = 0;
+	qnData_x3 = 0;
 	while (1)
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
-		nData_X3++;
+		qnData_x3++;
 	}
 	fclose(fileRead);
 
-	if (nData_X3 == 0)
+	if (qnData_x3 == 0)
 	{
-		printf("Error: Empty file in %s\n", dirData);
+		printf("Error in qualitative data\n");
 		exit (1);
 	}
-	nData_X3--;
+	qnData_x3--;
 
-	cudaMallocManaged(&timeQt_X3, nData_X3*sizeof(float));
-	dataQt_X3_raw = (float *) malloc(nData_X3*sizeof(float));
+	cudaMallocManaged(&qTime_x3, qnData_x3*sizeof(float));
+	cudaMallocManaged(&qData_x3, qnData_x3*sizeof(float));
 
 	fileRead = fopen(dirData, "r");
 	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
@@ -489,42 +495,44 @@ int main()
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
 
-		linea = strtok(renglon, ",");
+		linea = strtok(renglon, " ");
 		sscanf(linea, "%f", &auxFloat);
-		timeQt_X3[nn] = auxFloat;
+		qTime_x3[nn] = auxFloat;
 
-		linea = strtok(NULL, ",");
+		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxFloat);
-		dataQt_X3_raw[nn] = auxFloat;
+		qData_x3[nn] = auxFloat;
 
 		nn++;
 	}
 	fclose(fileRead);
 
-	// Read qualitative data for X3 variable
-	int qnData_X3;
-	window *timeQl_X3, *dataQl_X3;
+	int qnData_x2;
+	float *qTime_x2, *qData_x2;
 
-	sprintf(dirData, "qualX3cell.csv");
+	sprintf(dirData, "LVdata_qual_x2.data");
+	//sprintf(dirData, "pyNotebooks/cycle/LVdata_qual_x2.data");
+	//sprintf(dirData, "pyNotebooks/linear/LVdata_qual_x2.data");
+	//sprintf(dirData, "pyNotebooks/2-predators/LVdata_qual_x2.data");
 	fileRead = fopen(dirData, "r");
 
-	qnData_X3 = 0;
+	qnData_x2 = 0;
 	while (1)
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
-		qnData_X3++;
+		qnData_x2++;
 	}
 	fclose(fileRead);
 
-	if (qnData_X3 == 0)
+	if (qnData_x2 == 0)
 	{
-		printf("Error: Empty file in %s\n", dirData);
+		printf("Error in qualitative data\n");
 		exit (1);
 	}
-	qnData_X3--;
+	qnData_x2--;
 
-	cudaMallocManaged(&timeQl_X3, qnData_X3*sizeof(window));
-	cudaMallocManaged(&dataQl_X3, qnData_X3*sizeof(window));
+	cudaMallocManaged(&qTime_x2, qnData_x2*sizeof(float));
+	cudaMallocManaged(&qData_x2, qnData_x2*sizeof(float));
 
 	fileRead = fopen(dirData, "r");
 	if (fgets(renglon, sizeof(renglon), fileRead) == NULL) exit (1);
@@ -534,29 +542,21 @@ int main()
 	{
 		if (fgets(renglon, sizeof(renglon), fileRead) == NULL) break;
 
-		linea = strtok(renglon, ",");
+		linea = strtok(renglon, " ");
 		sscanf(linea, "%f", &auxFloat);
-		timeQl_X3[nn].min = auxFloat;
+		qTime_x2[nn] = auxFloat;
 
-		linea = strtok(NULL, ",");
+		linea = strtok(NULL, " ");
 		sscanf(linea, "%f", &auxFloat);
-		timeQl_X3[nn].max = auxFloat;
-
-		linea = strtok(NULL, ",");
-		sscanf(linea, "%f", &auxFloat);
-		dataQl_X3[nn].min = auxFloat;
-
-		linea = strtok(NULL, ",");
-		sscanf(linea, "%f", &auxFloat);
-		dataQl_X3[nn].max = auxFloat;
+		qData_x2[nn] = auxFloat;
 
 		nn++;
 	}
 	fclose(fileRead);
 
-    	/*+*+*+*+*+ FETCH PARAMETERS +*+*+*+*+*/
-	int Np, itMax, seed, D, bootFlag, rssFlag_X3, qFlag_X3;
-	float Fm, Cr, t0, tN, dt;
+    	/*+*+*+*+*+ DIFERENTIAL EVOLUTION +*+*+*+*+*/
+	int Np, itMax, seed, D, bootFlag, qflag_x2, qflag_x3;
+	float Fm, Cr, t0, tN, dt, windowTime, windowVal;
 	int err_flag = 0;
 
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
@@ -612,18 +612,26 @@ int main()
 
 	// Include qualitative fit?
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
-	else sscanf(renglon, "%d", &qFlag_X3);
+	else sscanf(renglon, "%d", &qflag_x2);
 
-	// Include raw X3 data?
+	// Include qualitative fit?
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
-	else sscanf(renglon, "%d", &rssFlag_X3);
+	else sscanf(renglon, "%d", &qflag_x3);
+
+	// Window of time for qual
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%f", &windowTime);
+
+	// Window of value fraction
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%f", &windowVal);
 
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 
 	if (err_flag)
 	{
-		printf("Error: Something is wrong in the parameter file (.param)\n");
+		printf("Error en archivo de parámetros (.data)\n");
 		exit (1);
 	}
 
@@ -634,17 +642,22 @@ int main()
 	pars.tN = tN;
 	pars.Np = Np;
 	pars.dt = dt;
-	pars.nData_X1 = nData_X1;
-	pars.nData_X3 = nData_X3;
-	pars.qnData_X3 = qnData_X3;
-	pars.qFlag_X3 = qFlag_X3;
-	if (!qFlag_X3) pars.rssFlag_X3 = rssFlag_X3;
-        else pars.rssFlag_X3 = 0;
+	pars.nData = nData;
+	pars.qnData_x3 = qnData_x3;
+	pars.qnData_x2 = qnData_x2;
+	pars.qflag_x2 = qflag_x2;
+	pars.qflag_x3 = qflag_x3;
+	pars.windowTime = windowTime;
+	pars.windowVal = windowVal;
 
 	// Initial values
         pars.X1_0 = 4.0;
         pars.X2_0 = 2.0;
         pars.X3_0 = 1.0;
+
+        //pars.X1_0 = 0.31;
+        //pars.X2_0 = 1e6;
+        //pars.X3_0 = 0.0;
 
 	float *lowerLim, *upperLim, *pop;
 	int ii, jj, idx;
@@ -671,11 +684,11 @@ int main()
 
 	cudaMallocManaged(&pop, Np*D*sizeof(float));
 
-	// Initialize random numbers
+	// Inicializa números aleatorios
 	if (seed < 0) seed *= -1;
 	Ran ranUni(seed);
 
-	// Initialize population
+	// Inicializa población
 	for (jj=0; jj<D; jj++)
 	{
 		aux = upperLim[jj] - lowerLim[jj];
@@ -688,84 +701,53 @@ int main()
 	}
 
 	// Sampling for bootstrap
-	float *dataQt_X1;
-	cudaMallocManaged(&dataQt_X1, nData_X1*sizeof(float));
+	float *dataX1;
+	cudaMallocManaged(&dataX1, nData*sizeof(float));
 
-	float *dataQt_X3;
-	cudaMallocManaged(&dataQt_X3, nData_X3*sizeof(float));
-
+	int tt, auxInt;
 	if (bootFlag)
 	{
-		int auxInt;
-		int tt;
-		float oldTime;
-
 		tt = 0;
-		oldTime = timeQt_X1[0];
-		for (nn=1; nn<=nData_X1; nn++)
+		nn = 0;
+		auxFloat = timeData[0];
+		for (nn=1; nn<nData; nn++)
 		{
 			tt++;
-
-			if (nn < nData_X1) if (oldTime == timeQt_X1[nn]) continue;
+			if (nn < nData-1) if (auxFloat == timeData[nn]) continue;
 
 			for (ii=nn-tt; ii<nn; ii++)
 			{
 				auxInt = tt*ranUni.doub();
-				// Using modulo for safety (auxInt!=tt)
-				dataQt_X1[ii] = dataQt_X1_raw[nn-tt+(auxInt%tt)];
+				if (auxInt == tt) auxInt--;
+				dataX1[ii] = orgDataX1[nn-tt+auxInt];
 			}
-
-			if (nn == nData_X1) break;
 			
 			tt = 0;
-			oldTime = timeQt_X1[nn];
-		}
-
-		tt = 0;
-		oldTime = timeQt_X3[0];
-		for (nn=1; nn<=nData_X3; nn++)
-		{
-			tt++;
-
-			if (nn < nData_X3) if (oldTime == timeQt_X3[nn]) continue;
-
-			for (ii=nn-tt; ii<nn; ii++)
-			{
-				auxInt = tt*ranUni.doub();
-				// Using modulo for safety (auxInt!=tt)
-				dataQt_X3[ii] = dataQt_X3_raw[nn-tt+(auxInt%tt)];
-			}
-
-			if (nn == nData_X3) break;
-			
-			tt = 0;
-			oldTime = timeQt_X3[nn];
+			auxFloat = timeData[nn];
 		}
 	}
-	else
-	{
-		for (nn=0; nn<nData_X1; nn++) dataQt_X1[nn] = dataQt_X1_raw[nn];
-		for (nn=0; nn<nData_X3; nn++) dataQt_X3[nn] = dataQt_X3_raw[nn];
-	}
-	free(dataQt_X1_raw);
-	free(dataQt_X3_raw);
+	else for (nn=0; nn<nData; nn++) dataX1[nn] = orgDataX1[nn];
+	free(orgDataX1);
 
 	int ths, blks;
-	float *costFn, *d_newCostFn;
+	float *valCostFn, *d_newValCostFn;
 
-	cudaMallocManaged(&costFn, Np*sizeof(float));
-	cudaMalloc(&d_newCostFn, Np*sizeof(float));
+	cudaMallocManaged(&valCostFn, Np*sizeof(float));
+	cudaMalloc(&d_newValCostFn, Np*sizeof(float));
 
 	// Estimate the number of threads and blocks for the GPU
 	ths = (Np < THS_MAX) ? nextPow2(Np) : THS_MAX;
 	blks = 1 + (Np - 1)/ths;
 
 	// Calcula el valor de la función objetivo
-	costFunction<<<blks, ths>>>(pars, pop, timeQt_X1, dataQt_X1, timeQt_X3, dataQt_X3,
-			timeQl_X3, dataQl_X3, costFn);
+	costFunction<<<blks, ths>>>(pars, pop, timeData, dataX1, qTime_x2, qData_x2, qTime_x3, qData_x3, valCostFn);
 	cudaDeviceSynchronize();
 
     	/*+*+*+*+*+ START OPTIMIZATION +*+*+*+*+*/
+	//FILE *fPars;
+	//fPars = fopen("pars.dat", "w");
+	//fprintf(fPars, "a1 a2 a3 a4 a5 a6 a7 a8 a9 RMSE it\n");
+
 	int it, xx, yy, zz;
 	int3 *iiMut;
 	float *d_randUni, *d_newPop;
@@ -782,15 +764,27 @@ int main()
 	curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_MTGP32);
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
 
+	//int flag;
+
 	// Start iterations
 	for (it=0; it<itMax; it++)
 	{
-		//minVal = costFn[0];
+		//flag = it%50;
+
+		// Encuentra cual es el minimo de la pobalción
+		//minVal = valCostFn[0];
 		//iiMin = 0;
-		//for(ii=1; ii<Np; ii++) if (minVal > costFn[ii])
+		//if (!flag)
+			//for(ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
+			//{
+			//	minVal = valCostFn[ii];
+			//	iiMin = ii;
+			//}
+
+		//if (!flag)
 		//{
-		//	minVal = costFn[ii];
-		//	iiMin = ii;
+		//	printf("Iteration %d\n", it);
+		//	printf("RMS_min = %f\n", minVal);
 		//}
 
 		//xx = iiMin; // best
@@ -806,51 +800,61 @@ int main()
 		// Generate random numbers and then update positions
 		curandGenerateUniform(gen, d_randUni, Np*D);
 
-		// Generate new population
-		newPopulation<<<blks, ths>>>(Np, D, Cr, Fm, d_randUni, iiMut,
-				lowerLim, upperLim, pop, d_newPop);
+		// Genera nueva población
+		newPopulation<<<blks, ths>>>(Np, D, Cr, Fm, d_randUni, iiMut, lowerLim, upperLim, pop, d_newPop);
 
-		// Calculate cost function values
-		costFunction<<<blks, ths>>>(pars, d_newPop, timeQt_X1, dataQt_X1, timeQt_X3, dataQt_X3,
-				timeQl_X3, dataQl_X3, d_newCostFn);
+		// Calcula el valor de la función objetivo
+		costFunction<<<blks, ths>>>(pars, d_newPop, timeData, dataX1, qTime_x2, qData_x2, qTime_x3, qData_x3, d_newValCostFn);
 
-		// Select the best vectors between new ones and old ones
-		selection<<<blks, ths>>>(Np, D, pop, d_newPop, costFn, d_newCostFn);
+		// Selecciona el mejor vector y lo guarda en la poblacion "pop"
+		selection<<<blks, ths>>>(Np, D, pop, d_newPop, valCostFn, d_newValCostFn);
 
 		cudaDeviceSynchronize();
+
+		// Save population for analysis
+		//if (!flag) for (ii=0; ii<Np; ii++)
+		//{
+		//	//if (valCostFn[ii] == 1e10) continue;
+		//	for(jj=0; jj<D; jj++) fprintf(fPars, "%.3e ", pop[ii*D + jj]);
+		//	fprintf(fPars, "%.3e %d\n", valCostFn[ii], it);
+		//}
 	}
 
+	//fclose(fPars);
 
-	// Minimum of the population
-	minVal = costFn[0];
+	// Encuentra cual es el minimo de la pobalción
+	minVal = valCostFn[0];
 	iiMin = 0;
-	for (ii=1; ii<Np; ii++) if (minVal > costFn[ii])
+	for (ii=1; ii<Np; ii++) if (minVal > valCostFn[ii])
 	{
-		minVal = costFn[ii];
+		minVal = valCostFn[ii];
 		iiMin = ii;
 	}
 
+	// Imprime el mejor vector de parámetros
+
 	FILE *fBestPars;
 	fBestPars = fopen("bestPars.dat", "a");
+	//fprintf(fBestPasr, "%e\n", minVal);
 	for (jj=0; jj<D; jj++) fprintf(fBestPars, "%.4e ", pop[iiMin*D + jj]);
 	fprintf(fBestPars, "%.4e\n", minVal);
 	fclose(fBestPars);
 
 	printf("FINISHED\n");
 
-	cudaFree(timeQt_X1);
-	cudaFree(timeQt_X3);
-	cudaFree(timeQl_X3);
+	cudaFree(timeData);
+	cudaFree(qTime_x2);
+	cudaFree(qTime_x3);
 	cudaFree(lowerLim);
 	cudaFree(upperLim);
-	cudaFree(dataQt_X1);
-	cudaFree(dataQt_X3);
-	cudaFree(dataQl_X3);
+	cudaFree(dataX1);
+	cudaFree(qData_x2);
+	cudaFree(qData_x3);
 	cudaFree(iiMut);
 	cudaFree(pop);
 	cudaFree(d_newPop);
-	cudaFree(costFn);
-	cudaFree(d_newCostFn);
+	cudaFree(valCostFn);
+	cudaFree(d_newValCostFn);
 	cudaFree(d_randUni);
 	curandDestroyGenerator(gen);
 

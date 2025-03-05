@@ -1,0 +1,29 @@
+### DE parameters
+32		# Population of parameter vectors (GPU threads)
+10		# Max iterations
+0.8		# Recombination probability (Cr)
+0.8		# Mutation factor (Fm)
+12345		# Seed for random numbers
+
+### Initial conditions for ODE solve
+0.0		# Initial time
+100.0		# Final time
+0.1		# Step time
+
+### Parameters to estimate (ranges)
+10		# Number of parameters to estimate
+1               # Resampling for bootstrap?
+1               # Include qualitative X3 fit?
+0               # Include raw X3 data fit? (cannot both be 1)
+
+# Limits [Lower : Upper]
+[0 : 0]		# a0
+[5e-2 : 5e-1]		# a1
+[5e-2 : 5e-1]		# a2
+[5e-2 : 5e-1]		# a3
+[5e-2 : 5e-1]		# a4
+[1e-2 : 1e-1]		# a5
+[5e-2 : 5e-1]		# a6
+[1e-2 : 1e-1]		# a7
+[5e-2 : 5e-1]		# a8
+[1e-2 : 1e-1]		# a9
