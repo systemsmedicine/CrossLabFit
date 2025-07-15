@@ -1,5 +1,5 @@
 qDE
 *.o
-pyNotebooks/.ipynb_checkpoints/
-pyNotebooks/figures/
-pyNotebooks/tmp/
+*.ipynb_checkpoints/
+figures/
+tmp/
