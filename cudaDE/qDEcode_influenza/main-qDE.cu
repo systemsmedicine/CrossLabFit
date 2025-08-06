@@ -686,10 +686,10 @@ int main()
 	pars.Tmax = Tmax;
 
 	// Initial values
-        pars.X1_0 = 1e7;
-        pars.X2_0 = 0.0;
-        pars.X3_0 = 0.0;
-        pars.X4_0 = T0;
+    pars.X1_0 = 1e7;
+    pars.X2_0 = 0.0;
+    pars.X3_0 = 0.0;
+    pars.X4_0 = T0;
 
 	float *lowerLim, *upperLim, *pop;
 	int ii, jj, idx;

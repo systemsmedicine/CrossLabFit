@@ -1,9 +1,9 @@
 HOST_COMPILER = gcc
-GPU_ARCH = sm_60
+GPU_ARCH = sm_80
 NVCCFLAGS = -O2
 LIBRARIES = -lm -lcurand
 #NVCC = nvcc -ccbin $(HOST_COMPILER) $(NVCCFLAGS) -arch=$(GPU_ARCH)
-NVCC = nvcc $(NVCCFLAGS)
+NVCC = nvcc $(NVCCFLAGS) -arch=$(GPU_ARCH)
 
 OBJS = main-qDE.o
 
