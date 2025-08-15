@@ -3,7 +3,7 @@
 ### Script to get likelihood profiles ###
 
 # Define the path to your executable and parameter file
-executable_path="/home/rodolfo/Proyectos/qualitativeDE/codes/qualitativeDE/qDEcode/qDE"
+executable_path="PATH_TO_EXACUTABLE/CrossLabFit/cudaDE/qDEcode_influenza/qDE"
 param_file="influenza.param"
 template_file="template.param"
 
@@ -28,7 +28,7 @@ declare -a param_settings=(
     "delI:-8.00:0.08:-4.00" 	# del_I similar to beta
     "p:-2.00:0.08:2.00"       	# p from 1e-2 to 1e2
     "c:-2.00:0.08:2.00"       	# c similar to p
-    "r:-8.00:0.08:-4.00"   	# r similar to beta
+    "r:-8.00:0.08:-4.00"   		# r similar to beta
     "delT:-2.00:0.08:2.00"  	# del_T similar to p
 )
 
@@ -37,15 +37,17 @@ declare -A skip_params
 skip_params[V0]=1
 skip_params[delT]=1
 skip_params[c]=1
-#skip_params[delI]=1
+skip_params[delI]=1
+skip_params[p]=1
+skip_params[r]=1
 
 # Iterate over each parameter and their defined range
-line=19		# Start line of the first parameter range
+line=20		# Start line of the first parameter range
 for param_info in $param_settings
 do
 	IFS=':' read param_name start increment end <<< $param_info
 	if [[ -z ${skip_params[$param_name]} ]]; then  # Check if param_name is not in skip_params
-        	# Modify parameter line in param file
+        # Modify parameter line in param file
 		sed "${line}s/.*/[VAL : VAL]  # $param_name/" $param_file > $template_file
 
 		# Calculate values for each parameter step
@@ -55,7 +57,7 @@ do
 			run_simulation $exponent $template_file
 		done
 
-		mv bestPars.dat ${param_name}_profile_qt.dat
+		mv bestPars.dat ${param_name}_profile_ql.dat
 	fi
 
 	line=$((line+1))

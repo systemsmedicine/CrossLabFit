@@ -3,8 +3,8 @@
 ### Script to get likelihood profiles ###
 
 # Define the path to your executable and parameter file
-executable_path="/home/rodolfo/Proyectos/crossLabFit/codes/CrossLabFit/cudaDE/qDEcode_influenza/qDE"
-param_file="influenza.param"
+executable_path="PATH_TO_EXECUTABLE/CrossLabFit/cudaDE/qDEcode_LV/qDE"
+param_file="cycle.param"
 template_file="template.param"
 
 # Function to run simulation with modified parameters
@@ -23,23 +23,28 @@ run_simulation() {
 # Parameters and their respective ranges
 # Syntax: "param_name:start_value:increment:end_value"
 declare -a param_settings=(
-    "V0:2.00:0.08:6.00"      	# V0 from 1e2 to 1e6
-    "beta:-8.00:0.08:-4.00"  	# beta from 1e-8 to 1e-4
-    "delI:-8.00:0.08:-4.00" 	# del_I similar to beta
-    "p:-2.00:0.08:2.00"       	# p from 1e-2 to 1e2
-    "c:-2.00:0.08:2.00"       	# c similar to p
-    "r:-8.00:0.08:-4.00"   	# r similar to beta
-    "delT:-2.00:0.08:2.00"  	# del_T similar to p
+    "a0:0.05:0.08:0.30" 
+    "a1:0.05:0.08:0.30" 
+    "a2:0.06:0.004:0.26" 
+    "a3:0.05:0.08:0.30" 
+    "a4:0.05:0.08:0.30" 
+    "a5:0.05:0.08:0.30" 
+    "a6:0.02:0.004:0.22" 
+    "a7:0.05:0.08:0.30" 
+    "a8:0.05:0.08:0.30" 
+    "a9:0.05:0.08:0.30" 
 )
 
 # Parameters to skip
 declare -A skip_params
-skip_params[V0]=1
-skip_params[delT]=1
-skip_params[c]=1
-skip_params[delI]=1
-skip_params[p]=1
-skip_params[r]=1
+skip_params[a0]=1
+skip_params[a1]=1
+skip_params[a3]=1
+skip_params[a4]=1
+skip_params[a5]=1
+skip_params[a7]=1
+skip_params[a8]=1
+skip_params[a9]=1
 
 # Iterate over each parameter and their defined range
 line=20		# Start line of the first parameter range
@@ -47,7 +52,7 @@ for param_info in $param_settings
 do
 	IFS=':' read param_name start increment end <<< $param_info
 	if [[ -z ${skip_params[$param_name]} ]]; then  # Check if param_name is not in skip_params
-        	# Modify parameter line in param file
+        # Modify parameter line in param file
 		sed "${line}s/.*/[VAL : VAL]  # $param_name/" $param_file > $template_file
 
 		# Calculate values for each parameter step
@@ -57,7 +62,7 @@ do
 			run_simulation $exponent $template_file
 		done
 
-		mv bestPars.dat ${param_name}_profile_qt.dat
+		mv bestPars.dat ${param_name}Profile.dat
 	fi
 
 	line=$((line+1))

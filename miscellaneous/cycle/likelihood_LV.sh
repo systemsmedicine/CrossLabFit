@@ -3,7 +3,7 @@
 ### Script to get likelihood profiles ###
 
 # Define the path to your executable and parameter file
-executable_path="/home/rodolfo/Proyectos/crossLabFit/codes/CrossLabFit/cudaDE/qDEcode_LV/qDE"
+executable_path="PATH_TO_EXECUTABLE/CrossLabFit/cudaDE/qDEcode_LV/qDE"
 param_file="cycle.param"
 template_file="template.param"
 
@@ -52,7 +52,7 @@ for param_info in $param_settings
 do
 	IFS=':' read param_name start increment end <<< $param_info
 	if [[ -z ${skip_params[$param_name]} ]]; then  # Check if param_name is not in skip_params
-        	# Modify parameter line in param file
+        # Modify parameter line in param file
 		sed "${line}s/.*/[VAL : VAL]  # $param_name/" $param_file > $template_file
 
 		# Calculate values for each parameter step

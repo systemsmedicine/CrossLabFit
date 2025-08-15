@@ -1,6 +1,6 @@
 ### DE parameters
-8192	# Population of parameter vectors (GPU threads)
-80000	# Max iterations
+32768	# Population of parameter vectors (GPU threads)
+100000	# Max iterations
 0.8		# Recombination probability (Cr)
 0.8		# Mutation factor (Fm)
 SEED	# Seed for random numbers
