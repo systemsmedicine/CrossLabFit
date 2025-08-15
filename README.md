@@ -12,11 +12,11 @@ The repository contains both **Python implementations** (for prototyping and vis
 ```
 
 ├── crossLabFit.ipynb       # Main Jupyter notebook (standalone framework)
-├── run\_optimization.py    # Python module for optimization with DE
+├── run_optimization.py    # Python module for optimization with DE
 │
 ├── cudaDE                  # CUDA/C optimizer and simulations
-│   ├── qDEcode\_influenza      # CUDA/C source code for influenza model
-│   ├── qDEcode\_LV             # CUDA/C source code for LV models
+│   ├── qDEcode_influenza      # CUDA/C source code for influenza model
+│   ├── qDEcode_LV             # CUDA/C source code for LV models
 │   └── simulations
 │       ├── influenza               # Scripts & input files for influenza simulations
 │       └── LVcycle                 # Scripts & input files for LV cycle simulations
@@ -121,6 +121,8 @@ CUDA build:
 
 ## Citation
 
-If you use **CrossLabFit** in your work, please cite the corresponding paper (add citation once published).
+If you use **CrossLabFit** in your work, please cite:
 
-Blanco-Rodriguez, R., Miura, T. A., & Hernandez-Vargas, E. (2024). CrossLabFit: A Novel Framework for Integrating Qualitative and Quantitative Data Across Multiple Labs for Model Calibration. *bioRxiv*, 2024-12.
+Blanco-Rodriguez, R., Miura, T. A., & Hernandez-Vargas, E. (2024).  
+*CrossLabFit: A Novel Framework for Integrating Qualitative and Quantitative Data Across Multiple Labs for Model Calibration.*  
+bioRxiv, 2024-12. https://doi.org/10.1101/2024.12.08.627398
