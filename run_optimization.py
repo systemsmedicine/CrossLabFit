@@ -1,98 +1,146 @@
-# run_optimization.py
-
 import numpy as np
 import warnings
+from functools import partial
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 from scipy.integrate import ODEintWarning
 from scipy.optimize import differential_evolution
-from functools import partial
 
-def rss(data_A, interp_func):
+# ===== RSS for a single dataset =====
+def rss_one(data_A, interp_func, penalty_value=1e6):
     try:
         times = data_A[:, 0]
-        obs = data_A[:, 1]
+        obs   = data_A[:, 1]
 
         # Find unique times and how many replicates there are per time
         unique_times, counts = np.unique(times, return_counts=True)
 
         # Interpolate model at unique time points
-        model_values = interp_func(unique_times)
+        model_vals = interp_func(unique_times)
 
         # Repeat to match number of replicates
-        model_repeated = np.repeat(model_values, counts)
+        model_rep  = np.repeat(model_vals, counts)
 
-        diff = obs - model_repeated
+        diff = obs - model_rep
         if not np.all(np.isfinite(diff)):
-            return 1e6
+            return penalty_value
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
-            rss = np.sum(diff ** 2)
-
-        if not np.isfinite(rss):
-            return 1e6
+            rss = np.sum(diff**2)
+        return rss if np.isfinite(rss) else penalty_value
         
-        return rss
-
     except Exception:
-        return 1e6
+        return penalty_value
 
-def costFunction(params, model, data_A, windows=None, use_windows=True,
-                  num_variables=3, rss_variable=0, window_variable=2, penalty_value=1e6):
+# ===== Generalized cost function =====
+def cost_function(
+    params,
+    model_func,
+    num_variables,        # Total number of model variables
+    data_list,            # list of arrays: each [:,0]=time, [:,1]=obs
+    qt_vars,             # list of ints: variable index of the model for each data array
+    windows_list=None,    # list of arrays (Tmin,Tmax,Vmin,Vmax) OR None per item
+    win_vars=None,        # list of ints: variable index of the model for each windows array
+    use_windows=True,
+    penalty_value=1e6,
+):
     try:
-        # Separate parameters and initial conditions
-        param_vec = params[:-num_variables]
-        X0 = params[-num_variables:]
+        if not isinstance(data_list, (list, tuple)):
+            data_list = [data_list]
+        if not isinstance(qt_vars, (list, tuple)):
+            qt_vars = [qt_vars]
 
-        # Time range
-        t_max_A = np.max(data_A[:, 0])
-        if use_windows and windows is not None:
-            t_max = max(t_max_A, np.max(windows[:, 1]))
-        else:
-            t_max = t_max_A
+        if windows_list is None:
+            windows_list = []
+        if win_vars is None:
+            win_vars = []
 
-        t_eval = np.linspace(0, t_max, 1000)
+        # split parameters and initial conditions
+        p_vec = params[:-num_variables]
+        X0    = params[-num_variables:]
 
-        # Solve ODE model
+        # time horizon: cover all data times and window Tmax
+        t_max = 0.0
+        for d in data_list:
+            if d is not None and len(d) > 0:
+                t_max = max(t_max, np.max(d[:, 0]))
+        if use_windows and windows_list:
+            for W in windows_list:
+                if W is not None and len(W) > 0:
+                    t_max = max(t_max, np.max(W[:, 1]))
+        if t_max <= 0:
+            t_max = 1.0
+
+        # High resolution to evaluate window violations
+        t_eval = np.linspace(0.0, t_max, 1000)
+
+        # integrate
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", ODEintWarning)
             warnings.simplefilter("ignore", RuntimeWarning)
-            sol = odeint(model, X0, t_eval, args=(param_vec,))
+            sol = odeint(model_func, X0, t_eval, args=(p_vec,))
 
+        # The stochasticity is an artifact to prevent the DE from stopping due to a homogeneous population.
         if not np.all(np.isfinite(sol)):
             return penalty_value * np.random.uniform(1, 2)
 
-        # Window constraint check
-        if use_windows and windows is not None:
-            var_w = sol[:, window_variable]
-            for row in windows:
-                tmin, tmax, vmin, vmax = row
-                mask = (t_eval >= tmin) & (t_eval <= tmax)
-                if not np.any((var_w[mask] >= vmin) & (var_w[mask] <= vmax)):
-                    return penalty_value * np.random.uniform(1, 2)
+        # window constraints across all provided sets
+        if use_windows and windows_list:
+            for W, v_idx in zip(windows_list, win_vars):
+                if W is None or len(W) == 0:
+                    continue
+                traj = sol[:, v_idx]
+                for row in W:
+                    Tmin, Tmax, Vmin, Vmax = row
+                    mask = (t_eval >= Tmin) & (t_eval <= Tmax)
+                    if not np.any((traj[mask] >= Vmin) & (traj[mask] <= Vmax)):
+                        return penalty_value * np.random.uniform(1, 2)
 
-        # RSS computation
-        var_rss = sol[:, rss_variable]
-        interp_func = interp1d(t_eval, var_rss, kind='linear', bounds_error=False, fill_value='extrapolate')
-        return rss(data_A, interp_func)
+        # total RSS across all quantitative datasets
+        total_rss = 0.0
+        for d, v_idx in zip(data_list, qt_vars):
+            if d is None or len(d) == 0:
+                continue
+            interp_f = interp1d(
+                t_eval, sol[:, v_idx],
+                kind='linear', bounds_error=False, fill_value='extrapolate'
+            )
+            total_rss += rss_one(d, interp_f, penalty_value=penalty_value)
+
+        if not np.isfinite(total_rss):
+            return penalty_value
+
+        return total_rss
 
     except Exception:
         return penalty_value * np.random.uniform(1, 2)
 
-def run_DE(bounds, model_func, data_A, windows, use_windows, num_variables,
-           rss_variable, window_variable, penalty_value=1e6, maxiter=100, popsize=15, disp=True):
-
+# ===== DE wrapper =====
+def run_DE(
+    bounds,
+    model_func,
+    num_variables,
+    data_list,
+    qt_vars,
+    windows_list=None,
+    win_vars=None,
+    use_windows=True,
+    penalty_value=1e6,
+    maxiter=100,
+    popsize=15,
+    disp=True,
+):
     objective = partial(
-    costFunction,
-    model=model_func,
-    data_A=data_A,
-    windows=windows,
-    use_windows=use_windows,
-    num_variables=num_variables,
-    rss_variable=rss_variable,
-    window_variable=window_variable,
-    penalty_value=penalty_value
+        cost_function,
+        model_func=model_func,
+        num_variables=num_variables,
+        data_list=data_list,
+        qt_vars=qt_vars,
+        windows_list=windows_list,
+        win_vars=win_vars,
+        use_windows=use_windows,
+        penalty_value=penalty_value,
     )
 
     result = differential_evolution(
@@ -102,88 +150,92 @@ def run_DE(bounds, model_func, data_A, windows, use_windows, num_variables,
         maxiter=maxiter,
         popsize=popsize,
         tol=1e-6,
-        mutation=0.8,
-        recombination=0.8,
+        mutation=(0.5, 1),
+        recombination=0.7,
         polish=True,
         workers=-1,
         updating='deferred',
-        disp=disp
+        disp=disp,
     )
-
     return result
 
-def run_profile_likelihood(param_index, param_range, steps, bounds, model_func, data_A, windows,
-                               use_windows, num_variables, rss_variable, window_variable,
-                               penalty_value=1e6, maxiter=100, popsize=20, seed=42):
-
-    fixed_values = np.linspace(param_range[0], param_range[1], steps)
-    profile_costs = []
-
-    for i, val in enumerate(fixed_values):
-        # Create a copy of bounds
-        mod_bounds = bounds.copy()
-        
-        # Fix the selected parameter by setting min = max = val
+# ===== profile likelihood  =====
+def run_profile_likelihood(
+    param_index, param_range, steps,
+    bounds,
+    model_func,
+    num_variables,
+    data_list, qt_vars,
+    windows_list=None, win_vars=None,
+    use_windows=True,
+    penalty_value=1e6,
+    maxiter=100, popsize=20, seed=42,
+):
+    fixed_vals = np.linspace(param_range[0], param_range[1], steps)
+    costs = []
+    for i, val in enumerate(fixed_vals):
+        mod_bounds = list(bounds)
         mod_bounds[param_index] = (val, val)
-
-        # Run optimization with modified bounds
-        result = run_DE(
+        res = run_DE(
             bounds=mod_bounds,
             model_func=model_func,
-            data_A=data_A,
-            windows=windows,
-            use_windows=use_windows,
             num_variables=num_variables,
-            rss_variable=rss_variable,
-            window_variable=window_variable,
-            penalty_value=penalty_value,
-            maxiter=maxiter,
-            disp=False,
-        )
-
-        profile_costs.append(result.fun)
-
-        print(f"[{i+1}/{steps}] Fixed param {param_index+1} at {val:.4f} → Cost: {result.fun:.4f}")
-
-    return fixed_values, profile_costs
-
-def run_bootstrap(n_bootstrap, bounds, model_func, data_A, windows=None, use_windows=False,
-              num_variables=3, rss_variable=0, window_variable=2, penalty_value=1e6, 
-              maxiter=100, popsize=20):
-
-    # Store all bootstrap estimates
-    param_matrix = []
-
-    # Extract times for proper resampling grouping
-    unique_times = np.unique(data_A[:, 0])
-
-    rng = np.random.default_rng()
-
-    for b in range(n_bootstrap):
-        # RESAMPLING WITH REPLACEMENT
-        resample_idx = rng.integers(low=0, high=data_A.shape[0], size=data_A.shape[0])
-        bootstrap_sample = data_A[resample_idx, :]
-
-        # RUN OPTIMIZATION
-        result = run_DE(
-            bounds=bounds,
-            model_func=model_func,
-            data_A=bootstrap_sample,
-            windows=windows,
+            data_list=data_list,
+            qt_vars=qt_vars,
+            windows_list=windows_list,
+            win_vars=win_vars,
             use_windows=use_windows,
-            num_variables=num_variables,
-            rss_variable=rss_variable,
-            window_variable=window_variable,
             penalty_value=penalty_value,
             maxiter=maxiter,
             popsize=popsize,
-            disp=False
+            disp=False,
         )
+        costs.append(res.fun)
+        
+        print(f"[{i+1}/{steps}] Fixed param {param_index+1} = {val:.4f} → Cost {res.fun:.4f}")
+        
+    return fixed_vals, np.array(costs)
 
-        print(f"[Bootstrap {b+1}/{n_bootstrap}] Final cost: {result.fun:.4f}")
+# ===== bootstrap (generalized over the first quantitative dataset by default) =====
+def run_bootstrap(
+    n_bootstrap,
+    bounds,
+    model_func,
+    num_variables,
+    data_list, qt_vars,
+    windows_list=None, win_vars=None,
+    use_windows=False,
+    penalty_value=1e6,
+    maxiter=100, popsize=20, seed=0,
+    resample_index=0,   # which dataset in data_list to resample
+):
+    rng = np.random.default_rng(seed)
+    
+    param_mat = []
+    for b in range(n_bootstrap):
+        dl = list(data_list)
+        d  = dl[resample_index]
+        idx = rng.integers(0, d.shape[0], size=d.shape[0])
+        dl[resample_index] = d[idx, :]  # resampled copy
+
+        res = run_DE(
+            bounds=bounds,
+            model_func=model_func,
+            num_variables=num_variables,
+            data_list=dl,
+            qt_vars=qt_vars,
+            windows_list=windows_list,
+            win_vars=win_vars,
+            use_windows=use_windows,
+            penalty_value=penalty_value,
+            maxiter=maxiter,
+            popsize=popsize,
+            disp=False,
+        )
+        
+        print(f"[Bootstrap {b+1}/{n_bootstrap}] cost={res.fun:.4f}")
 
         # Save only parameter estimates (exclude X0)
-        best_params = result.x[:-num_variables]
-        param_matrix.append(best_params)
-
-    return np.array(param_matrix)
+        param_mat.append(res.x[:-num_variables])
+        
+    return np.array(param_mat)
