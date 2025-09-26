@@ -12,7 +12,7 @@ The repository contains both **Python implementations** (for prototyping and vis
 ```
 
 ├── crossLabFit.ipynb       # Main Jupyter notebook (standalone framework)
-├── run_optimization.py    # Python module for optimization with DE
+├── run_optimization.py     # Python module for optimization with DE
 │
 ├── cudaDE                  # CUDA/C optimizer and simulations
 │   ├── qDEcode_influenza      # CUDA/C source code for influenza model
@@ -28,7 +28,8 @@ The repository contains both **Python implementations** (for prototyping and vis
     ├── linear                  # Linear model data
     ├── 2-predators             # Two-predator Lotka–Volterra data
     ├── influenza               # Influenza model data
-    └── test                    # Testing different optimizers & cost functions data
+    ├── test                    # Testing different optimizers & cost functions data
+    └── *.ipynb                 # Jupyter notebooks to analyze and plot results
 
 ````
 
