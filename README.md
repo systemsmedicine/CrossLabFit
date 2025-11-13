@@ -28,6 +28,7 @@ The repository contains both **Python implementations** (for prototyping and vis
     ├── linear                  # Linear model data
     ├── 2-predators             # Two-predator Lotka–Volterra data
     ├── influenza               # Influenza model data
+    ├── glycolysis              # Glycolysis model data
     ├── test                    # Testing different optimizers & cost functions data
     └── *.ipynb                 # Jupyter notebooks to analyze and plot results
 
