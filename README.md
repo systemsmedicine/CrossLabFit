@@ -125,6 +125,4 @@ CUDA build:
 
 If you use **CrossLabFit** in your work, please cite:
 
-Blanco-Rodriguez, R., Miura, T. A., & Hernandez-Vargas, E. (2024).  
-*CrossLabFit: A Novel Framework for Integrating Qualitative and Quantitative Data Across Multiple Labs for Model Calibration.*  
-bioRxiv, 2024-12. https://doi.org/10.1101/2024.12.08.627398
+Blanco-Rodriguez, R., Miura, T. A., & Hernandez-Vargas, E. (2025). CrossLabFit: A novel framework for integrating qualitative and quantitative data across multiple labs for model calibration. PLOS Computational Biology, 21(11), e1013704. https://doi.org/10.1371/journal.pcbi.1013704
